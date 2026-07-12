@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\PraktikanLoginRequest;
+use App\Providers\RouteServiceProvider;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Route;
-use App\Providers\RouteServiceProvider;
-use App\Http\Requests\Auth\PraktikanLoginRequest;
 
 class LoginPraktikanController extends Controller
 {
@@ -20,7 +19,7 @@ class LoginPraktikanController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Login', [ //ini gantii yahh
+        return Inertia::render('Auth/Login', [ // ini gantii yahh
             // data that u wanna pass
         ]);
     }
@@ -32,13 +31,13 @@ class LoginPraktikanController extends Controller
     {
         try {
             $request->authenticate();
-    
+
             $request->session()->regenerate();
             $user = Auth::guard('praktikan')->user(); // Get the authenticated user object$role = Role::firstOrCreate(
             $role = Role::firstOrCreate(['name' => 'PRAKTIKAN', 'guard_name' => 'praktikan']);
             $permissions = $role->permissions;
             $allPermissions = $role->permissions->pluck('name'); // Extract permissions
-    
+
             $token = $user->createToken($role->name, [...$allPermissions])->plainTextToken; // Generate a new token
 
             $cookie = cookie('auth', $token, 60, null, null, true, true, false, 'Lax');
@@ -47,11 +46,8 @@ class LoginPraktikanController extends Controller
                 ->header('X-XSRF-TOKEN', csrf_token())
                 ->header('Authorization', $token)
                 ->cookie($cookie);
-            
         } catch (\Throwable $th) {
-            return response()->json([
-                'error' => $th->getMessage()
-            ]);
+            return redirect()->back()->with('error', $th->getMessage());
         }
 
     }
@@ -73,5 +69,4 @@ class LoginPraktikanController extends Controller
 
         return redirect(route('landing'));
     }
-    
 }

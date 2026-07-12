@@ -2,12 +2,11 @@
 
 namespace Database\Factories;
 
-
-use Spatie\Permission\Models\Role;
 use App\Models\Asisten;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
@@ -29,7 +28,7 @@ class AsistenFactory extends Factory
         return [
             'nama' => $this->faker->name(),
             'kode' => Str::upper(Str::random(3)), // Generates a random 3-letter uppercase string
-            'role_id' => $this->faker->numberBetween(1,6),
+            'role_id' => $this->faker->numberBetween(1, 6),
             'nomor_telepon' => $this->faker->phoneNumber(),
             'id_line' => $this->faker->unique()->userName(),
             'instagram' => $this->faker->unique()->userName(),
@@ -42,7 +41,7 @@ class AsistenFactory extends Factory
 
     public function withRoles(array $roleName)
     {
-        return $this->afterCreating(function (Asisten $asisten) use ($roleName) {
+        return $this->afterCreating(function (Asisten $asisten) {
             // Assign role in Spatie
             $asisten->assignRole($role);
 
@@ -54,6 +53,4 @@ class AsistenFactory extends Factory
 
         });
     }
-
-   
 }

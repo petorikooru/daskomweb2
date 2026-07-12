@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Kelas;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,7 +21,8 @@ class PraktikanFactory extends Factory
             'nama' => $this->faker->name,
             'nim' => $this->faker->numerify('##########'), // Generates a 10-digit number
             'password' => bcrypt('password'), // Default password for testing
-            'kelas_id' => $this->faker->numberBetween(1, 2), // Adjust as per your data
+            'kelas_id' => Kelas::factory(),
+            'dk' => $this->faker->randomElement(['DK1', 'DK2']),
             'alamat' => $this->faker->address,
             'nomor_telepon' => $this->faker->phoneNumber,
             'email' => $this->faker->unique()->safeEmail,

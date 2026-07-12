@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Models\JawabanTp;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\JawabanTp as JawabanTps;
+use App\Models\Modul;
+use App\Models\Praktikan;
+use App\Models\SoalTp as SoalTps;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class JawabanTPController extends Controller
 {
@@ -20,92 +26,207 @@ class JawabanTPController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         try {
-            $validateData = $request->validate([
-                'jawaban' => 'required|string',
-                'soal_id' => 'required',
-                'praktikan_id' => 'required',
-                'modul_id' => 'required',
-            ]);
-            JawabanTp::where('praktikan_id', $validateData['praktikan_id'])
-                ->where('modul_id', $validateData['modul_id'])
-                ->where('soal_id', $validateData['soal_id'])
+            $entries = $this->validatedEntries($request);
+
+            if ($entries->isEmpty()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tidak ada jawaban yang dikirimkan.',
+                ], 422);
+            }
+
+            if ($entries->pluck('praktikan_id')->unique()->count() > 1 || $entries->pluck('modul_id')->unique()->count() > 1) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Setiap permintaan hanya boleh memuat satu praktikan dan satu modul.',
+                ], 422);
+            }
+
+            $first = $entries->first();
+            $praktikanId = $first['praktikan_id'];
+            $modulId = $first['modul_id'];
+
+            JawabanTps::where('praktikan_id', $praktikanId)
+                ->where('modul_id', $modulId)
                 ->delete();
-            JawabanTp::create([
-                'jawaban' => $validateData['jawaban'],
-                'soal_id' => $validateData['soal_id'],
-                'praktikan_id' => $validateData['praktikan_id'],
-                'modul_id' => $validateData['modul_id'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+
+            foreach ($entries as $entry) {
+                JawabanTps::create([
+                    'jawaban' => $entry['jawaban'],
+                    'soal_id' => $entry['soal_id'],
+                    'praktikan_id' => $praktikanId,
+                    'modul_id' => $modulId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             return response()->json([
-                "status" => "success",
-                "message" => "Jawaban berhasil disimpan.",
+                'status' => 'success',
+                'message' => 'Jawaban berhasil disimpan.',
             ], 201);
-        } catch (\Exception $e) {
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Terjadi kesalahan saat menyimpan jawaban.",
-                "error" => $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menyimpan jawaban.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
+     * @return Collection<int, array{praktikan_id:int, modul_id:int, soal_id:int, jawaban:string}>
+     */
+    private function validatedEntries(Request $request): Collection
+    {
+        $payload = $request->all();
+
+        $entries = array_is_list($payload) ? $payload : [$payload];
+
+        return collect($entries)->map(function ($entry, int $index) {
+            $validator = Validator::make($entry, [
+                'jawaban' => ['nullable', 'string'],
+                'soal_id' => ['required', 'integer'],
+                'praktikan_id' => ['required', 'integer'],
+                'modul_id' => ['required', 'integer'],
+            ], [], [
+                'jawaban' => "jawaban.{$index}",
+                'soal_id' => "soal_id.{$index}",
+                'praktikan_id' => "praktikan_id.{$index}",
+                'modul_id' => "modul_id.{$index}",
+            ]);
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+
+            $normalizedAnswer = trim((string) ($entry['jawaban'] ?? ''));
+
+            return [
+                'jawaban' => $normalizedAnswer === '' ? '-' : $normalizedAnswer,
+                'soal_id' => (int) $entry['soal_id'],
+                'praktikan_id' => (int) $entry['praktikan_id'],
+                'modul_id' => (int) $entry['modul_id'],
+            ];
+        });
+    }
+
+    /**
      * Display the specified resource.
      */
-    public function show($idModul)
+    public function show(int $idModul): JsonResponse
     {
         try {
-            $jawaban = JawabanTp::where('praktikan_id', auth('sanctum')->user()->id)
+            $praktikan = auth('praktikan')->user();
+
+            if (! $praktikan) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
+            $modul = Modul::findOrFail($idModul);
+
+            if (! $modul->isQuestionTypeUnlocked('tp')) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Jawaban masih terkunci.',
+                ], 403);
+            }
+
+            $jawaban = JawabanTps::where('praktikan_id', $praktikan->id)
                 ->where('modul_id', $idModul)
                 ->get();
+
             if ($jawaban->isEmpty()) {
                 return response()->json([
-                    "status" => "success",
-                    "message" => "Tidak ada jawaban",
+                    'status' => 'success',
+                    'message' => 'Tidak ada jawaban',
                 ]);
             }
+
             return response()->json([
-                "status" => "success",
-                "jawaban_tp" => $jawaban,
+                'status' => 'success',
+                'jawaban_tp' => $jawaban,
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Terjadi kesalahan saat mengambil data jawaban.",
-                "error" => $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat mengambil data jawaban.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function showAsisten($idPraktikan, $idModul)
+    public function getJawabanTP($nim, $modulId)
     {
         try {
-            $jawaban = JawabanTp::where('praktikan_id', $idPraktikan)
-                ->where('modul_id', $idModul)
-                ->get();
-            if ($jawaban->isEmpty()) {
+            // Existing logic from showJawabanTP
+            $praktikan = Praktikan::where('nim', $nim)->first();
+            if (! $praktikan) {
                 return response()->json([
-                    "status" => "success",
-                    "message" => "Tidak ada jawaban",
-                ]);
+                    'success' => false,
+                    'message' => 'Praktikan tidak ditemukan',
+                ], 404);
             }
+
+            $modul = Modul::find($modulId);
+            if (! $modul) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Modul tidak ditemukan',
+                ], 404);
+            }
+
+            $soalList = SoalTps::where('modul_id', $modulId)->get();
+            if ($soalList->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada soal untuk modul ini',
+                ], 404);
+            }
+
+            $jawabanList = JawabanTps::where('praktikan_id', $praktikan->id)
+                ->where('modul_id', $modulId)
+                ->get()
+                ->keyBy('soal_id');
+
+            $jawabanData = [];
+
+            foreach ($soalList as $soal) {
+                $jawaban = isset($jawabanList[$soal->id]) ? $jawabanList[$soal->id]->jawaban : '-';
+
+                $jawabanData[] = [
+                    'soal_id' => $soal->id,
+                    'soal_text' => $soal->soal,
+                    'jawaban' => $jawaban,
+                ];
+            }
+
             return response()->json([
-                "status" => "success",
-                "jawaban_tp" => $jawaban,
+                'success' => true,
+                'data' => [
+                    'jawabanData' => $jawabanData,
+                    'praktikan' => $praktikan,
+                    'modul' => $modul,
+                ],
             ]);
+
         } catch (\Exception $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Terjadi kesalahan saat mengambil data jawaban.",
-                "error" => $e->getMessage(),
+                'success' => false,
+                'message' => 'Terjadi kesalahan: '.$e->getMessage(),
             ], 500);
         }
     }
+
+    // Show jawaban for asisten
 
     /**
      * Update the specified resource in storage.

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Modul;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,12 +18,11 @@ class ModulFactory extends Factory
     {
         return [
             'judul' => $this->faker->word,
-            'poin1' => $this->faker->text,
-            'poin1' => $this->faker->text,
-            'poin1' => $this->faker->text,
+            'deskripsi' => $this->faker->text,
             'isEnglish' => $this->faker->boolean,
             'isUnlocked' => $this->faker->boolean,
+            'unlock_config' => null,
         ];
-    
+
     }
 }

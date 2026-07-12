@@ -9,11 +9,18 @@ export default defineConfig({
             ssr: 'resources/js/ssr.jsx',
             refresh: true,
         }),
-        react(),
+        react({
+            babel: {
+                plugins: ['babel-plugin-react-compiler'],
+            },
+        }),
     ],
     resolve: {
         alias: {
             '@': '/resources/js',
         },
+    },
+    optimizeDeps: {
+        include: ['react-markdown', 'remark-gfm', 'remark-breaks'],
     },
 });

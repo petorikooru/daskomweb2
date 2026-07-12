@@ -7,51 +7,44 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class SoalJurnal
- * 
+ *
  * @property int $id
  * @property int $modul_id
- * @property string $pengantar
- * @property string $kodingan
  * @property string $soal
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property bool|null $isSulit
- * 
  * @property Modul $modul
  * @property Collection|JawabanJurnal[] $jawaban_jurnals
- *
- * @package App\Models
  */
 class SoalJurnal extends Model
 {
-	use HasFactory;
-	protected $table = 'soal_jurnals';
+    use HasFactory;
 
-	protected $casts = [
-		'modul_id' => 'int',
-		'isSulit' => 'bool'
-	];
+    protected $table = 'soal_jurnals';
 
-	protected $fillable = [
-		'modul_id',
-		'pengantar',
-		'kodingan',
-		'soal',
-	];
+    protected $casts = [
+        'modul_id' => 'int',
+    ];
 
-	public function modul()
-	{
-		return $this->belongsTo(Modul::class);
-	}
+    protected $fillable = [
+        'modul_id',
+        'soal',
+        'enable_file_upload',
+    ];
 
-	public function jawaban_jurnals()
-	{
-		return $this->hasMany(JawabanJurnal::class, 'soal_id');
-	}
+    public function modul()
+    {
+        return $this->belongsTo(Modul::class);
+    }
+
+    public function jawaban_jurnals()
+    {
+        return $this->hasMany(JawabanJurnal::class, 'soal_id');
+    }
 }

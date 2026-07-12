@@ -10,9 +10,10 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * Register services.
      */
-
     public const ASSISTANT = '/assistant';
+
     public const PRAKTIKAN = '/praktikan';
+
     public function register(): void
     {
         Model::unguard();

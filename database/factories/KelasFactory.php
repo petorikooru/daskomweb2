@@ -17,12 +17,14 @@ class KelasFactory extends Factory
     public function definition(): array
     {
         return [
-            "kelas" => $this->faker->realText(10),
-            "hari" => $this->faker->dayOfWeek,
-            "shift" => $this->faker->numberBetween(1, 4),
-            "totalGroup" => $this->faker->numberBetween(1, 20),
-            "created_at" => now(),
-            "updated_at" => now(),
+            'kelas' => $this->faker->realText(10),
+            'hari' => $this->faker->dayOfWeek,
+            'shift' => $this->faker->numberBetween(1, 4),
+            'totalGroup' => $this->faker->numberBetween(1, 20),
+            'isEnglish' => $this->faker->boolean,
+            'is_tot' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
         ];
     }
 }

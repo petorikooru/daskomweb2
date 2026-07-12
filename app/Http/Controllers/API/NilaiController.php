@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Models\Nilai;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Nilai;
 use Illuminate\Container\Attributes\Auth;
+use Illuminate\Http\Request;
 
 class NilaiController extends Controller
 {
@@ -23,18 +23,19 @@ class NilaiController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'tp'           => 'required|numeric|min:0|max:100',
-            'ta'           => 'required|numeric|min:0|max:100',
-            'd1'           => 'required|numeric|min:0|max:100',
-            'd2'           => 'required|numeric|min:0|max:100',
-            'd3'           => 'required|numeric|min:0|max:100',
-            'd4'           => 'required|numeric|min:0|max:100',
-            'l1'           => 'required|numeric|min:0|max:100',
-            'l2'           => 'required|numeric|min:0|max:100',
-            'modul_id'     => 'required|exists:moduls,id',
-            'asisten_id'   => 'required|exists:asistens,id',
-            'kelas_id'     => 'required|exists:kelas,id',
+            'tp' => 'required|numeric|min:0|max:100',
+            'ta' => 'required|numeric|min:0|max:100',
+            'd1' => 'required|numeric|min:0|max:100',
+            'd2' => 'required|numeric|min:0|max:100',
+            'd3' => 'required|numeric|min:0|max:100',
+            'd4' => 'required|numeric|min:0|max:100',
+            'l1' => 'required|numeric|min:0|max:100',
+            'l2' => 'required|numeric|min:0|max:100',
+            'modul_id' => 'required|exists:moduls,id',
+            'asisten_id' => 'required|exists:asistens,id',
+            'kelas_id' => 'required|exists:kelas,id',
             'praktikan_id' => 'required|exists:praktikans,id',
+            'rating' => 'nullable|numeric|min:0.1|max:5',
         ]);
         try {
             $avg = (
@@ -48,32 +49,33 @@ class NilaiController extends Controller
                 $validatedData['l2']
             ) / 8;
             $nilai = Nilai::create([
-                'tp'           => $validatedData['tp'],
-                'ta'           => $validatedData['ta'],
-                'd1'           => $validatedData['d1'],
-                'd2'           => $validatedData['d2'],
-                'd3'           => $validatedData['d3'],
-                'd4'           => $validatedData['d4'],
-                'l1'           => $validatedData['l1'],
-                'l2'           => $validatedData['l2'],
-                'avg'          => $avg,
-                'modul_id'     => $validatedData['modul_id'],
-                'asisten_id'   => $validatedData['asisten_id'],
-                'kelas_id'     => $validatedData['kelas_id'],
+                'tp' => $validatedData['tp'],
+                'ta' => $validatedData['ta'],
+                'd1' => $validatedData['d1'],
+                'd2' => $validatedData['d2'],
+                'd3' => $validatedData['d3'],
+                'd4' => $validatedData['d4'],
+                'l1' => $validatedData['l1'],
+                'l2' => $validatedData['l2'],
+                'avg' => $avg,
+                'modul_id' => $validatedData['modul_id'],
+                'asisten_id' => $validatedData['asisten_id'],
+                'kelas_id' => $validatedData['kelas_id'],
                 'praktikan_id' => $validatedData['praktikan_id'],
+                'rating' => $validatedData['rating'] ?? null,
             ]);
+
             return response()->json([
                 'message' => 'Nilai berhasil ditambahkan.',
-                'data'    => $nilai,
+                'data' => $nilai,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menambahkan nilai.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
 
     /**
      * Display the specified resource.
@@ -81,12 +83,18 @@ class NilaiController extends Controller
     public function show()
     {
         try {
-            $nilai = Nilai::where('praktikan_id', auth('sanctum')->user()->id)->get();
+            // $nilai = Nilai::where('praktikan_id', auth('sanctum')->user()->id)->get();
+            // change sanctum method to guard praktikan
+            $nilai = Nilai::where('praktikan_id', auth('praktikan')->user()->id)
+                ->with(['modul', 'asisten'])
+                ->get();
+
             if ($nilai->isEmpty()) {
                 return response()->json([
                     'message' => 'Data nilai tidak ditemukan untuk praktikan ini.',
                 ], 404);
             }
+
             return response()->json([
                 'nilai' => $nilai,
                 'message' => 'Data nilai berhasil diambil.',
@@ -99,18 +107,28 @@ class NilaiController extends Controller
         }
     }
 
-    public function showAsisten($idPraktikan, $idModul)
+    public function showAsisten($praktikanId, $modulId)
     {
+        $assistant = auth('asisten')->user();
+
+        if (! $assistant) {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
         try {
-            $nilai = Nilai::where('praktikan_id', $idPraktikan)
-                ->where('modul_id', $idModul)
-                ->where('asisten_id', auth('asisten')->user()->id)
+            $nilai = Nilai::where('praktikan_id', $praktikanId)
+                ->where('modul_id', $modulId)
+                ->where('asisten_id', $assistant->id)
+                ->with(['modul', 'praktikan.kelas'])
                 ->first();
-            if (!$nilai) {
+            if (! $nilai) {
                 return response()->json([
                     'message' => 'Data nilai tidak ditemukan untuk kombinasi praktikan, modul, dan asisten ini.',
                 ], 404);
             }
+
             return response()->json([
                 'nilai' => $nilai,
                 'message' => 'Data nilai berhasil diambil.',
@@ -122,7 +140,6 @@ class NilaiController extends Controller
             ], 500);
         }
     }
-    
 
     /**
      * Update the specified resource in storage.
@@ -142,6 +159,7 @@ class NilaiController extends Controller
             'asisten_id' => 'required|exists:asistens,id',
             'kelas_id' => 'required|exists:kelas,id',
             'praktikan_id' => 'required|exists:praktikans,id',
+            'rating' => 'nullable|numeric|min:0.1|max:5',
         ]);
     }
 
@@ -149,9 +167,9 @@ class NilaiController extends Controller
     {
         try {
             $nilai = Nilai::find($id);
-            if (!$nilai) {
+            if (! $nilai) {
                 return response()->json([
-                    'message' => 'Data nilai dengan ID ' . $id . ' tidak ditemukan.'
+                    'message' => 'Data nilai dengan ID '.$id.' tidak ditemukan.',
                 ], 404);
             }
             $validatedData = $this->validateRequest($request);
@@ -166,9 +184,10 @@ class NilaiController extends Controller
                 $validatedData['l2']
             ) / 8;
             $nilai->update(array_merge($validatedData, ['avg' => $avg]));
+
             return response()->json([
                 'message' => 'Data nilai berhasil diperbarui.',
-                'nilai' => $nilai,
+                'nilai' => $nilai->fresh(),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([

@@ -13,11 +13,11 @@ return [
     |
     */
 
-    'paths' => ['api-v1/*', 'sanctum/csrf-cookie', 'asisten/*', 'praktikan/*', 'login/asisten','login/praktikan'], // Apply CORS to specific routes like API and CSRF
+    'paths' => ['api-v1/*', 'sanctum/csrf-cookie', 'asisten/*', 'praktikan/*', 'login/asisten', 'login/praktikan'], // Apply CORS to specific routes like API and CSRF
 
     'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
 
-    'allowed_origins' => ['http://localhost:5173, http://127.0.0.1:5173, http://localhost:8000,  http://127.0.0.1:8000'], // Allow all origins; you can replace '*' with specific domains, e.g. ['https://example.com']
+    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8000', 'http://127.0.0.1:8000', 'https://lms2.daskomlab.com'], // Allow all origins; you can replace '*' with specific domains, e.g. ['https://example.com']
 
     'allowed_origins_patterns' => [], // Allow specific patterns (e.g., 'https://*.example.com')
 

@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolePermissionsSeeder extends Seeder
 {
@@ -15,7 +14,7 @@ class RolePermissionsSeeder extends Seeder
     public function run(): void
     {
         // aslab Pro Ultra
-        //List of permissions to create
+        // List of permissions to create
         // $permissions = [
         //     // 'super-aslab',
         //     // 'aslab-features',
@@ -80,8 +79,6 @@ class RolePermissionsSeeder extends Seeder
         // Permission::create(['name' => 'ganti-password', 'guard_name' => 'praktikan', 'created_at' => now(), 'updated_at' => now()]);
         Permission::create(['name' => 'logout-praktikan', 'guard_name' => 'praktikan', 'created_at' => now(), 'updated_at' => now()]);
 
-
-
         $role = Role::firstOrCreate(['name' => 'PRAKTIKAN', 'guard_name' => 'praktikan']);
 
         $role->givePermissionTo([
@@ -93,9 +90,8 @@ class RolePermissionsSeeder extends Seeder
             // 'lihat-leaderboard',
             // 'isi-polling',
             // 'ganti-password',
-            'logout-praktikan'
+            'logout-praktikan',
         ]);
-
 
         // $AslabProUltra = Role::firstOrCreate(['name' => 'SOFTWARE', 'guard_name' => 'asisten']);
 
@@ -109,7 +105,6 @@ class RolePermissionsSeeder extends Seeder
 
         // $Hardware = Role::firstOrCreate(['name' => 'HARDWARE', 'guard_name' => 'asisten']);
 
-
         // $AsistenSemiUltra = Role::firstOrCreate(['name' => 'DDC', 'guard_name' => 'asisten']);
 
         // $AsprakATC = Role::firstOrCreate(['name' => 'ATC', 'guard_name' => 'asisten']);
@@ -121,7 +116,6 @@ class RolePermissionsSeeder extends Seeder
         // $AsprakHRD = Role::firstOrCreate(['name' => 'HRD', 'guard_name' => 'asisten']);
 
         // $AsprakMLC = Role::firstOrCreate(['name' => 'MLC', 'guard_name' => 'asisten']);
-
 
         // $AslabProUltra->givePermissionTo('manage-role');
         // $AslabProUltra->givePermissionTo('manage-praktikum');
@@ -282,7 +276,6 @@ class RolePermissionsSeeder extends Seeder
         // $Hardware->givePermissionTo('praktikan-regist');
         // $Hardware->givePermissionTo('logout');
 
-
         // $AsistenSemiUltra->givePermissionTo('manage-profile');
         // $AsistenSemiUltra->givePermissionTo('see-praktikum');
         // $AsistenSemiUltra->givePermissionTo('see-history');
@@ -305,7 +298,6 @@ class RolePermissionsSeeder extends Seeder
         // $AsistenSemiUltra->givePermissionTo('tugas-pendahuluan');
         // $AsistenSemiUltra->givePermissionTo('tp-configuration');
         // $AsistenSemiUltra->givePermissionTo('praktikan-regist');
-
 
         // $AsprakATC->givePermissionTo('manage-profile');
         // $AsprakATC->givePermissionTo('see-praktikum');

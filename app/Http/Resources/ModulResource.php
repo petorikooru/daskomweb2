@@ -14,7 +14,7 @@ class ModulResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-         return [
+        return [
             'id' => $this->id,
             'judul' => $this->judul,
             'deskripsi' => $this->deskripsi,
@@ -23,6 +23,7 @@ class ModulResource extends JsonResource
             'updated_at' => $this->updated_at->format('d/m/Y'),
             'isEnglish' => $this->isEnglish,
             'isUnlocked' => $this->isUnlocked,
+            'unlock_config' => $this->unlock_config,
         ];
     }
 }

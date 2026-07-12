@@ -15,8 +15,8 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('modul_id')->index('praktikums_modul_id_foreign');
             $table->unsignedBigInteger('kelas_id')->index('praktikums_kelas_id_foreign');
-            $table->time('start_time')->nullable();
-            $table->time('end_time')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('ended_at')->nullable();
             $table->boolean('isActive')->default(false);
             $table->timestamps();
         });

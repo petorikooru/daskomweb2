@@ -19,3 +19,21 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+database.sql
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+**/caddy
+frankenphp
+frankenphp-worker.php
+dbdata
+
+runapp.sh
+supervisord.log
+supervisord.pid

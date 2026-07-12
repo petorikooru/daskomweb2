@@ -2,64 +2,52 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Controller;
 use App\Models\Asisten;
 use App\PermissionGroupEnum;
 use Illuminate\Http\Request;
-use App\Models\Role as roles;
-use Spatie\Permission\Models\Role;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-
     public function index()
     {
         if (Auth::guard('asisten')->check()) {
             $roles = Role::where('name', '!=', 'praktikan')
-            ->get()
-            ->makeHidden(['guard_name']);
-        }else{
+                ->get()
+                ->makeHidden(['guard_name']);
+        } else {
             $roles = Role::where('name', '!=', 'praktikan') // Exclude the 'praktikan' role
-            ->whereNotIn('name', ['SOFTWARE', 'ADMIN', 'KORDAS', 'WAKORDAS', 'KOORPRAK', 'HARDWARE', 'DDC']) // Exclude specific roles
-            ->get()
-            ->makeHidden(['guard_name']);
+                ->whereNotIn('name', ['SOFTWARE', 'ADMIN', 'KORDAS', 'WAKORDAS', 'KOORPRAK', 'HARDWARE', 'DDC']) // Exclude specific roles
+                ->get()
+                ->makeHidden(['guard_name']);
         }
 
         return response()->json([
-            'roles' => $roles
+            'roles' => $roles,
         ]);
     }
 
     public function store(Request $request)
     {
         $SUPER_PACKAGE = array_merge(
-            PermissionGroupEnum::SUPER_ASLAB,
-            PermissionGroupEnum::ASLAB,
-            PermissionGroupEnum::ATC,
-            PermissionGroupEnum::RDC,
-            PermissionGroupEnum::ASISTEN
+            PermissionGroupEnum::SUPER_ASLAB
         );
 
         $ASLAB_PACKAGE = array_merge(
-            PermissionGroupEnum::ASLAB,
-            PermissionGroupEnum::ATC,
-            PermissionGroupEnum::RDC,
-            PermissionGroupEnum::ASISTEN
+            PermissionGroupEnum::ASLAB
         );
 
         $ATC_PACKAGE = array_merge(
-            PermissionGroupEnum::ATC,
-            PermissionGroupEnum::ASISTEN
+            PermissionGroupEnum::ATC
         );
 
         $RDC_PACKAGE = array_merge(
-            PermissionGroupEnum::RDC,
-            PermissionGroupEnum::ASISTEN
+            PermissionGroupEnum::RDC
         );
 
         $ASISTEN_PACKAGE = array_merge(
@@ -68,50 +56,53 @@ class RoleController extends Controller
 
         try {
             $request->validate([
-                'name' => 'required|string',
-                'paket' => 'required|string',
+                'name' => 'required|string|unique:roles,name',
             ]);
+            $data = request()->input('paket', []);
 
-            switch ($request->paket) {
-                case 'super':
-                    $permissions = $SUPER_PACKAGE;
-                    break;
-                case 'aslab':
-                    $permissions = $ASLAB_PACKAGE;
-                    break;
-                case 'atc':
-                    $permissions = $ATC_PACKAGE;
-                    break;
-                case 'rdc':
-                    $permissions = $RDC_PACKAGE;
-                    break;
-                case 'asisten':
-                    $permissions = $ASISTEN_PACKAGE;
-                    break;
-                default:
-                    $permissions = [];
-                    break;
+            if (empty($data)) {
+                return redirect(route('manage-role'))->with('error', 'No data provided.');
+            }
+
+            $permissions = [];
+            foreach ($data as $paket) {
+                if (! in_array($paket, ['super', 'aslab', 'atc', 'rdc', 'asisten'])) {
+                    return redirect(route('manage-role'))->with('error', 'Invalid package.');
+                }
+
+                switch ($paket) {
+                    // case 'super':
+                    //     $permissions = array_merge($permissions, $SUPER_PACKAGE);
+                    //     break;
+                    // case 'aslab':
+                    //     $permissions = array_merge($permissions, $ASLAB_PACKAGE);
+                    //     break;
+                    case 'atc':
+                        $permissions = array_merge($permissions, $ATC_PACKAGE);
+                        break;
+                    case 'rdc':
+                        $permissions = array_merge($permissions, $RDC_PACKAGE);
+                        break;
+                    case 'asisten':
+                        $permissions = array_merge($permissions, $ASISTEN_PACKAGE);
+                        break;
+                    default:
+                        $permissions = [];
+                        break;
+                }
             }
 
             $role = Role::create([
                 'name' => $request->name,
                 'guard_name' => 'asisten',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ]);
-
             $role->syncPermissions($permissions);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Role created successfully',
-                'data' => $role
-            ], 200);
+            return redirect(route('manage-role'))->with('success', 'Role created successfully.');
         } catch (\Throwable $th) {
-            return response()->json([
-                'success' => false,
-                'message' => $th->getMessage(),
-            ], 500);
+            return redirect(route('manage-role'))->with('error', $th->getMessage());
         }
     }
 
@@ -126,14 +117,14 @@ class RoleController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $idAsisten) //update role asisten
+    public function update(Request $request, $idAsisten) // update role asisten
     {
         try {
             $request->validate([
                 'role_id' => 'required|exists:roles,id',
             ]);
             $role = Role::findOrFail($request->role_id);
-            $asisten = Asisten::findOrFail($idAsisten);
+            $asisten = Asisten::where('kode', $idAsisten)->first();
             $oldRole = Role::findOrFail($asisten->role_id);
             $asisten->role_id = $request->role_id;
             $asisten->updated_at = now();
@@ -142,15 +133,9 @@ class RoleController extends Controller
             $asisten->removeRole($oldRole->name);
             $asisten->assignRole($role->name);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Asisten role updated successfully',
-            ], 200);
+            return redirect(route('manage-role'))->with('success', 'Role updated successfully');
         } catch (\Throwable $th) {
-            return response()->json([
-                'success' => false,
-                'message' => $th->getMessage(),
-            ], 500);
+            return redirect(route('manage-role'))->with('error', $th->getMessage());
         }
     }
 

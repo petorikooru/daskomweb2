@@ -6,58 +6,90 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection as BaseCollection;
 
 /**
  * Class SoalTa
- * 
+ *
  * @property int $id
  * @property int $modul_id
- * @property string $pengantar
- * @property string $kodingan
  * @property string $pertanyaan
- * @property string $jawaban_benar
- * @property string $jawaban_salah1
- * @property string $jawaban_salah2
- * @property string $jawaban_salah3
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * 
+ * @property int|null $opsi1_id
+ * @property int|null $opsi2_id
+ * @property int|null $opsi3_id
+ * @property int|null $opsi_benar_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  * @property Modul $modul
  * @property Collection|JawabanTa[] $jawaban_tas
- *
- * @package App\Models
+ * @property BaseCollection<int, SoalOpsi> $options
  */
 class SoalTa extends Model
 {
-	use HasFactory;
-	protected $table = 'soal_tas';
+    use HasFactory;
 
-	protected $casts = [
-		'modul_id' => 'int'
-	];
+    protected $table = 'soal_tas';
 
-	protected $fillable = [
-		'modul_id',
-		'pengantar',
-		'kodingan',
-		'pertanyaan',
-		'jawaban_benar',
-		'jawaban_salah1',
-		'jawaban_salah2',
-		'jawaban_salah3'
-	];
+    protected $casts = [
+        'modul_id' => 'int',
+        'opsi1_id' => 'int',
+        'opsi2_id' => 'int',
+        'opsi3_id' => 'int',
+        'opsi_benar_id' => 'int',
+    ];
 
-	public function modul()
-	{
-		return $this->belongsTo(Modul::class);
-	}
+    protected $fillable = [
+        'modul_id',
+        'pertanyaan',
+        'opsi1_id',
+        'opsi2_id',
+        'opsi3_id',
+        'opsi_benar_id',
+    ];
 
-	public function jawaban_tas()
-	{
-		return $this->hasMany(JawabanTa::class, 'soal_id');
-	}
+    protected static function booted(): void
+    {
+        static::deleting(function (self $soal) {
+            $soal->options()->delete();
+        });
+    }
+
+    public function modul()
+    {
+        return $this->belongsTo(Modul::class);
+    }
+
+    public function jawaban_tas()
+    {
+        return $this->hasMany(JawabanTa::class, 'soal_id');
+    }
+
+    public function options()
+    {
+        return $this->hasMany(SoalOpsi::class, 'soal_id')
+            ->where('soal_type', SoalOpsi::TYPE_TA);
+    }
+
+    public function opsi1()
+    {
+        return $this->belongsTo(SoalOpsi::class, 'opsi1_id');
+    }
+
+    public function opsi2()
+    {
+        return $this->belongsTo(SoalOpsi::class, 'opsi2_id');
+    }
+
+    public function opsi3()
+    {
+        return $this->belongsTo(SoalOpsi::class, 'opsi3_id');
+    }
+
+    public function opsiBenar()
+    {
+        return $this->belongsTo(SoalOpsi::class, 'opsi_benar_id');
+    }
 }

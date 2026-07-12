@@ -4,8 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Auth;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckPermission
@@ -50,5 +50,4 @@ class CheckPermission
         // Redirect the user if unauthorized
         return redirect('/');
     }
-
 }

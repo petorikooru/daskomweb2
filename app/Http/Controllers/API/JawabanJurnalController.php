@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Models\Modul;
-use Illuminate\Http\Request;
-use App\Models\JawabanJurnal;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\JawabanJurnal;
+use App\Models\Modul;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class JawabanJurnalController extends Controller
 {
@@ -29,6 +29,8 @@ class JawabanJurnalController extends Controller
                 '0.modul_id' => 'required|integer',
                 '*.soal_id' => 'required|integer',
                 '*.jawaban' => 'nullable|string',
+                '*.attachment_url' => 'nullable|string',
+                '*.attachment_file_id' => 'nullable|string',
             ]);
             JawabanJurnal::where('praktikan_id', $request->input('0.praktikan_id'))
                 ->where('modul_id', $request->input('0.modul_id'))
@@ -39,82 +41,115 @@ class JawabanJurnalController extends Controller
                     'modul_id' => $data['modul_id'],
                     'soal_id' => $data['soal_id'],
                     'jawaban' => empty($data['jawaban']) ? '-' : $data['jawaban'],
+                    'attachment_url' => $data['attachment_url'] ?? null,
+                    'attachment_file_id' => $data['attachment_file_id'] ?? null,
                 ]);
             }
+
             return response()->json([
-                "status" => "success",
-                "message" => "Jawaban jurnal berhasil disimpan."
+                'status' => 'success',
+                'message' => 'Jawaban jurnal berhasil disimpan.',
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Validasi gagal.",
-                "errors" => $e->errors(),
+                'status' => 'error',
+                'message' => 'Validasi gagal.',
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Terjadi kesalahan saat menyimpan jawaban jurnal.",
-                "error" => $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat menyimpan jawaban jurnal.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
 
     /**
      * Display the specified resource.
      */
-    public function show($idModul)
+    public function show(int $idModul): JsonResponse
     {
-        try{
-            $modul = Modul::findOrFail($idModul);
-            if($modul->isUnlocked){
-                $jawaban = JawabanJurnal::where('praktikan_id', auth('sanctum')->user()->id)->where('modul_id', $idModul)->get();
+        try {
+            $praktikan = auth('praktikan')->user();
+
+            if (! $praktikan) {
                 return response()->json([
-                    "status" => "success",
-                    'message' => "Jawaban Jurnal Berhasil diambil",
-                    "jawaban_jurnal" => $jawaban,
-                ],200);
+                    'status' => 'error',
+                    'message' => 'Unauthorized.',
+                ], 401);
             }
+
+            $modul = Modul::findOrFail($idModul);
+            if ($modul->isQuestionTypeUnlocked('jurnal')) {
+                $jawaban = JawabanJurnal::where('praktikan_id', $praktikan->id)
+                    ->where('modul_id', $idModul)
+                    ->get();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Jawaban Jurnal Berhasil diambil',
+                    'jawaban_jurnal' => $jawaban,
+                ], 200);
+            }
+
             return response()->json([
-                "status" => "success",
-                'messages' => "Jawaban Masih Terkunci"
-            ],403);
-        }catch(\Illuminate\Database\Eloquent\ModelNotFoundException $e){
-            return response() -> json([
-                "status" => "error",
-                "message" => "Modul Tidak ditemukan Hub ATC",
-                "error" => $e->getMessage(),
-            ],404);
-        }catch(\Exception $e) {
-            return response() -> json([
-                "status" => "error",
-                "message" => "Terjadi Kesalahan saat mengambil data",
-                "error" => $e->getMessage(),
-            ],500);
+                'status' => 'success',
+                'message' => 'Jawaban masih terkunci.',
+            ], 403);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Modul Tidak ditemukan Hub ATC',
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi Kesalahan saat mengambil data',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
-    public function showAsisten($idPraktikan, $idModul)
+    public function showAsisten(int $praktikanId, int $modulId)
     {
-        try{
-            $jawaban = JawabanJurnal::where('praktikan_id', $idPraktikan)->where('modul_id', $idModul)->get();
+        try {
+            $jawaban = JawabanJurnal::with('soal_jurnal')
+                ->where('praktikan_id', $praktikanId)
+                ->where('modul_id', $modulId)
+                ->get()
+                ->map(function (JawabanJurnal $item) {
+                    return [
+                        'soal_id' => $item->soal_id,
+                        'soal_text' => $item->soal_jurnal?->soal,
+                        'jawaban' => $item->jawaban,
+                        'attachment_url' => $item->attachment_url,
+                        'attachment_file_id' => $item->attachment_file_id,
+                    ];
+                })
+                ->values();
+
             return response()->json([
-                "status" => "success",
-                "jawaban_jurnal" => $jawaban
-            ],200);
-        }catch(\Illuminate\Database\Eloquent\ModelNotFoundException $e){
-            return response() -> json([
-                "error" => "error",
-                "message" => "jawaban tidak ditemukan ",
-                "error" => $e->getMessage(),
-            ],404);
-        }catch(\Exception $e) {
-            return response()-> json([
-                "status" => "error",
-                "message" => "terjadi kesalahan saat mengambil data",
-                "error" => $e->getMessage(),
-            ],500);
+                'success' => true,
+                'jawaban_jurnal' => $jawaban,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Jawaban tidak ditemukan.',
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 

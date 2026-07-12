@@ -12,10 +12,8 @@ class SoalTpFactory extends Factory
     public function definition()
     {
         return [
-            'modul_id' => $this->faker->numberBetween(11,15),
+            'modul_id' => $this->faker->numberBetween(11, 15),
             'soal' => $this->faker->sentence,
-            'isEssay' => $this->faker->boolean,
-            'isProgram' => $this->faker->boolean,
             'created_at' => now(),
             'updated_at' => now(),
         ];

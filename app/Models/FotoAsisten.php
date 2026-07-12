@@ -11,28 +11,26 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class FotoAsisten
- * 
+ *
  * @property int $id
  * @property string $kode
  * @property string $foto
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * 
  * @property Asisten $asisten
- *
- * @package App\Models
  */
 class FotoAsisten extends Model
 {
-	protected $table = 'foto_asistens';
+    protected $table = 'foto_asistens';
 
-	protected $fillable = [
-		'kode',
-		'foto'
-	];
+    protected $fillable = [
+        'kode',
+        'foto',
+        'file_id',
+    ];
 
-	public function asisten()
-	{
-		return $this->belongsTo(Asisten::class, 'kode', 'kode');
-	}
+    public function asisten()
+    {
+        return $this->belongsTo(Asisten::class, 'kode', 'kode');
+    }
 }

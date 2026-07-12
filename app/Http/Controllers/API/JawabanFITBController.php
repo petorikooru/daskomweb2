@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Models\Modul;
-use App\Models\JawabanFitb;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\JawabanFitb;
+use App\Models\Modul;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class JawabanFITBController extends Controller
 {
@@ -29,12 +29,13 @@ class JawabanFITBController extends Controller
                 ->delete();
             for ($i = 0; $i < count($request->all()); $i++) {
                 JawabanFitb::create([
-                    'praktikan_id' => $request->input($i . '.praktikan_id'),
-                    'modul_id' => $request->input($i . '.modul_id'),
-                    'soal_id' => $request->input($i . '.soal_id'),
-                    'jawaban' => $request->input($i . '.jawaban') == '' ? '-' : $request->input($i . '.jawaban'),
+                    'praktikan_id' => $request->input($i.'.praktikan_id'),
+                    'modul_id' => $request->input($i.'.modul_id'),
+                    'soal_id' => $request->input($i.'.soal_id'),
+                    'jawaban' => $request->input($i.'.jawaban') == '' ? '-' : $request->input($i.'.jawaban'),
                 ]);
             }
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Data berhasil disimpan.',
@@ -47,64 +48,90 @@ class JawabanFITBController extends Controller
             ], 500);
         }
     }
-    
 
     /**
      * Display the specified resource.
      */
-    public function show($idModul)
+    public function show(int $idModul): JsonResponse
     {
         try {
+            $praktikan = auth('praktikan')->user();
+
+            if (! $praktikan) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
             $modul = Modul::findOrFail($idModul);
-            if ($modul->isUnlocked) {
-                $jawaban = JawabanFitb::where('praktikan_id', auth('sanctum')->user()->id)
+            if ($modul->isQuestionTypeUnlocked('fitb')) {
+                $jawaban = JawabanFitb::where('praktikan_id', $praktikan->id)
                     ->where('modul_id', $idModul)
                     ->get();
+
                 return response()->json([
-                    "status" => "success",
-                    "jawaban_fitb" => $jawaban,
-                    "message" => "Jawaban berhasil diambil."
+                    'status' => 'success',
+                    'jawaban_fitb' => $jawaban,
+                    'message' => 'Jawaban berhasil diambil.',
                 ], 200);
             }
+
             return response()->json([
-                "status" => "success",
-                "message" => "Jawaban masih terkunci."
+                'status' => 'success',
+                'message' => 'Jawaban masih terkunci.',
             ], 403);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Modul tidak ditemukan.",
-                "error" => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Modul tidak ditemukan.',
+                'error' => $e->getMessage(),
             ], 404);
         } catch (\Exception $e) {
             return response()->json([
-                "status" => "error",
-                "message" => "Terjadi kesalahan saat mengambil data.",
-                "error" => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat mengambil data.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
 
-    public function showAsisten($idPraktikan, $idModul){
-        try{
-            $jawaban = JawabanFitb::where('praktikan_id', $idPraktikan)->where('modul_id', $idModul)->get();
+    public function showAsisten(int $praktikanId, int $modulId)
+    {
+        try {
+            $jawaban = JawabanFitb::with('soal_fitb')
+                ->where('praktikan_id', $praktikanId)
+                ->where('modul_id', $modulId)
+                ->get()
+                ->map(function (JawabanFitb $item) {
+                    return [
+                        'soal_id' => $item->soal_id,
+                        'soal_text' => $item->soal_fitb?->soal,
+                        'jawaban' => $item->jawaban,
+                    ];
+                })
+                ->values();
+
             return response()->json([
-                "status" => "success",
-                "jawaban_fitb" => $jawaban
+                'success' => true,
+                'jawaban_fitb' => $jawaban,
             ]);
-        }catch(\Illuminate\Database\Eloquent\ModelNotFoundException $e){
-            return response() -> json([
-                'status' => 'notSucces' ,
-                'message' => 'Jawaban FITB tidak ditemukan hubungi FYN/JIN',
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Jawaban FITB tidak ditemukan.',
                 'error' => $e->getMessage(),
-            ],404);
-        }catch(\Exception $e){
-            return response() -> json([
-                'status' => 'Failed',
-                'message' => 'Gagal menumukan jawaban',
-                "error" => $e->getMessage(),
-            ],505);
+            ], 404);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menemukan jawaban.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 

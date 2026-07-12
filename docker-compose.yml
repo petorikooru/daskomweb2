@@ -1,0 +1,73 @@
+services:
+  lms2_redis:
+    image: redis:7-alpine
+    container_name: lms2_redis
+    command: ["redis-server", "--appendonly", "no"]
+    restart: always
+    expose:
+      - "6379"
+    networks:
+      - lms2_network
+
+  lms2_phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: lms2_phpmyadmin
+    restart: always
+    environment:
+      - PMA_HOST=lms2_mysql
+      - PMA_ABSOLUTE_URI=${PHPMYADMIN_PUBLIC_URL}
+    ports:
+      - "8081:80"
+    depends_on:
+      - lms2_mysql
+    networks:
+      - lms2_network
+  
+  lms2_mysql:
+    image: mysql:8.0
+    container_name: lms2_mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-dasdaskom}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
+    expose:
+      - "3306"
+    volumes:
+      - ./dbdata:/var/lib/mysql
+      - ./import-db/lms22.sql:/docker-entrypoint-initdb.d/lms22.sql:ro
+    networks:
+      - lms2_network
+
+
+  frontend:
+    image: oven/bun:1.3-alpine
+    command: sh -c "[ ! -d /home/bun/app/node_modules ] && bun install && bun run build || echo 'Node modules exists, skipping...'"
+    volumes:
+      - ./:/home/bun/app
+    restart: "no"
+    user: "1000:1000"
+    networks:
+      - lms2_network
+
+  lms2_web:
+    container_name: lms2_web
+    build:
+      context: docker
+    environment:
+      - CADDY_DISABLE_HTTP=true
+      - CADDY_DISABLE_HTTPS=true
+    command: sh -c "supervisord -c /etc/supervisord.conf"
+    volumes:
+      - ./:/app
+    ports:
+      - "8001:8000"
+      - "8090:8090"
+    networks:
+      - lms2_network
+    depends_on:
+      - frontend
+
+networks:
+  lms2_network:
+    external: true
+    name: lms2_network

@@ -22,11 +22,11 @@ class RedirectIfAuthenticated
 
         // Check the user's guard and redirect accordingly
         if ($asisten) {
-            return redirect()->route('assistant'); 
+            return redirect()->route('assistant');
         }
-            
+
         if ($praktikan) {
-            return redirect()->route('praktikan'); 
+            return redirect()->route('praktikan');
         }
 
         return $next($request);

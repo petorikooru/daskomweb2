@@ -42,12 +42,12 @@ return [
         ],
         'asisten' => [
             'driver' => 'session',
-            'provider' => 'asistens'
+            'provider' => 'asistens',
         ],
         'praktikan' => [
             'driver' => 'session',
-            'provider' => 'praktikans'
-        ]
+            'provider' => 'praktikans',
+        ],
     ],
 
     /*

@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class Modul
- * 
+ *
  * @property int $id
  * @property string $judul
  * @property string $deskripsi
@@ -22,8 +22,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon|null $updated_at
  * @property bool|null $isEnglish
  * @property bool $isUnlocked
- * 
- * @property Collection|HistoryJaga[] $history_jagas
+ * @property array|null $unlock_config
  * @property Collection|JawabanFitb[] $jawaban_fitbs
  * @property Collection|JawabanJurnal[] $jawaban_jurnals
  * @property Collection|JawabanMandiri[] $jawaban_mandiris
@@ -31,11 +30,10 @@ use Illuminate\Database\Eloquent\Model;
  * @property Collection|JawabanTk[] $jawaban_tks
  * @property Collection|JawabanTp[] $jawaban_tps
  * @property Collection|KumpulTp[] $kumpul_tps
- * @property Collection|LaporanPj[] $laporan_pjs
  * @property Collection|LaporanPraktikan[] $laporan_praktikans
  * @property Collection|Nilai[] $nilais
  * @property Collection|Praktikum[] $praktikums
- * @property Collection|Resource[] $resources
+ * @property Collection|resource[] $resources
  * @property Collection|SoalFitb[] $soal_fitbs
  * @property Collection|SoalJurnal[] $soal_jurnals
  * @property Collection|SoalMandiri[] $soal_mandiris
@@ -44,127 +42,172 @@ use Illuminate\Database\Eloquent\Model;
  * @property Collection|SoalTp[] $soal_tps
  * @property Collection|TempJawabantp[] $temp_jawabantps
  * @property Collection|Tugaspendahuluan[] $tugaspendahuluans
- *
- * @package App\Models
  */
 class Modul extends Model
 {
-	use HasFactory;
-	protected $table = 'moduls';
-	protected $primaryKey = "id";
-    protected $keyType = "int";
+    use HasFactory;
 
-	protected $fillable = [
-		'judul',
-		'poin1',
-		'poin2',
-		'poin3',
-		'isEnglish',
-		'isUnlocked'
-	];
+    protected $table = 'moduls';
 
-	public function history_jagas()
-	{
-		return $this->hasMany(HistoryJaga::class);
-	}
+    protected $primaryKey = 'id';
 
-	public function jawaban_fitbs()
-	{
-		return $this->hasMany(JawabanFitb::class);
-	}
+    protected $keyType = 'int';
 
-	public function jawaban_jurnals()
-	{
-		return $this->hasMany(JawabanJurnal::class);
-	}
+    public const QUESTION_TYPES = ['ta', 'tp', 'tk', 'jurnal', 'fitb', 'tm'];
 
-	public function jawaban_mandiris()
-	{
-		return $this->hasMany(JawabanMandiri::class);
-	}
+    protected $fillable = [
+        'judul',
+        'deskripsi',
+        'isEnglish',
+        'isUnlocked',
+        'unlock_config',
+    ];
 
-	public function jawaban_tas()
-	{
-		return $this->hasMany(JawabanTa::class);
-	}
+    protected function casts(): array
+    {
+        return [
+            'isEnglish' => 'boolean',
+            'isUnlocked' => 'boolean',
+            'unlock_config' => 'array',
+        ];
+    }
 
-	public function jawaban_tks()
-	{
-		return $this->hasMany(JawabanTk::class);
-	}
+    public static function normalizeUnlockConfig(?array $config, bool $fallback): array
+    {
+        $normalized = [];
 
-	public function jawaban_tps()
-	{
-		return $this->hasMany(JawabanTp::class);
-	}
+        foreach (self::QUESTION_TYPES as $type) {
+            if ($type === 'tp') {
+                $normalized[$type] = true;
 
-	public function kumpul_tps()
-	{
-		return $this->hasMany(KumpulTp::class);
-	}
+                continue;
+            }
 
-	public function laporan_pjs()
-	{
-		return $this->hasMany(LaporanPj::class);
-	}
+            if (array_key_exists($type, $config ?? [])) {
+                $normalized[$type] = (bool) $config[$type];
 
-	public function laporan_praktikans()
-	{
-		return $this->hasMany(LaporanPraktikan::class);
-	}
+                continue;
+            }
 
-	public function nilais()
-	{
-		return $this->hasMany(Nilai::class);
-	}
+            $normalized[$type] = $fallback;
+        }
 
-	public function praktikums()
-	{
-		return $this->hasMany(Praktikum::class);
-	}
+        return $normalized;
+    }
 
-	public function resources()
-	{
-		return $this->hasMany(Resource::class);
-	}
+    public function isQuestionTypeUnlocked(string $type): bool
+    {
+        $normalizedType = strtolower($type);
 
-	public function soal_fitbs()
-	{
-		return $this->hasMany(SoalFitb::class);
-	}
+        if ($normalizedType === 'tp') {
+            return true;
+        }
 
-	public function soal_jurnals()
-	{
-		return $this->hasMany(SoalJurnal::class);
-	}
+        if (! in_array($normalizedType, self::QUESTION_TYPES, true)) {
+            return (bool) $this->isUnlocked;
+        }
 
-	public function soal_mandiris()
-	{
-		return $this->hasMany(SoalMandiri::class);
-	}
+        $config = $this->unlock_config ?? [];
 
-	public function soal_tas()
-	{
-		return $this->hasMany(SoalTa::class);
-	}
+        if (array_key_exists($normalizedType, $config)) {
+            return (bool) $config[$normalizedType];
+        }
 
-	public function soal_tks()
-	{
-		return $this->hasMany(SoalTk::class);
-	}
+        return (bool) $this->isUnlocked;
+    }
 
-	public function soal_tps()
-	{
-		return $this->hasMany(SoalTp::class);
-	}
+    public function jawaban_fitbs()
+    {
+        return $this->hasMany(JawabanFitb::class);
+    }
 
-	public function temp_jawabantps()
-	{
-		return $this->hasMany(TempJawabantp::class);
-	}
+    public function jawaban_jurnals()
+    {
+        return $this->hasMany(JawabanJurnal::class);
+    }
 
-	public function tugaspendahuluans()
-	{
-		return $this->hasMany(Tugaspendahuluan::class);
-	}
+    public function jawaban_mandiris()
+    {
+        return $this->hasMany(JawabanMandiri::class);
+    }
+
+    public function jawaban_tas()
+    {
+        return $this->hasMany(JawabanTa::class);
+    }
+
+    public function jawaban_tks()
+    {
+        return $this->hasMany(JawabanTk::class);
+    }
+
+    public function jawaban_tps()
+    {
+        return $this->hasMany(JawabanTp::class);
+    }
+
+    public function kumpul_tps()
+    {
+        return $this->hasMany(KumpulTp::class);
+    }
+
+    public function laporan_praktikans()
+    {
+        return $this->hasMany(LaporanPraktikan::class);
+    }
+
+    public function nilais()
+    {
+        return $this->hasMany(Nilai::class);
+    }
+
+    public function praktikums()
+    {
+        return $this->hasMany(Praktikum::class);
+    }
+
+    public function resources()
+    {
+        return $this->hasMany(Resource::class);
+    }
+
+    public function soal_fitbs()
+    {
+        return $this->hasMany(SoalFitb::class);
+    }
+
+    public function soal_jurnals()
+    {
+        return $this->hasMany(SoalJurnal::class);
+    }
+
+    public function soal_mandiris()
+    {
+        return $this->hasMany(SoalMandiri::class);
+    }
+
+    public function soal_tas()
+    {
+        return $this->hasMany(SoalTa::class);
+    }
+
+    public function soal_tks()
+    {
+        return $this->hasMany(SoalTk::class);
+    }
+
+    public function soal_tps()
+    {
+        return $this->hasMany(SoalTp::class);
+    }
+
+    public function temp_jawabantps()
+    {
+        return $this->hasMany(TempJawabantp::class);
+    }
+
+    public function tugaspendahuluans()
+    {
+        return $this->hasMany(Tugaspendahuluan::class);
+    }
 }

@@ -7,49 +7,45 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class SoalFitb
- * 
+ *
  * @property int $id
  * @property int $modul_id
- * @property string $pengantar
- * @property string $kodingan
  * @property string $soal
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * 
  * @property Modul $modul
  * @property Collection|JawabanFitb[] $jawaban_fitbs
- *
- * @package App\Models
  */
 class SoalFitb extends Model
 {
-	use HasFactory;
-	protected $table = 'soal_fitbs';
+    use HasFactory;
 
-	protected $casts = [
-		'modul_id' => 'int'
-	];
+    protected $table = 'soal_fitbs';
 
-	protected $fillable = [
-		'modul_id',
-		'pengantar',
-		'kodingan',
-		'soal'
-	];
+    protected $casts = [
+        'modul_id' => 'int',
+        'enable_file_upload' => 'bool',
+    ];
 
-	public function modul()
-	{
-		return $this->belongsTo(Modul::class);
-	}
+    protected $fillable = [
+        'modul_id',
+        'soal',
+        'enable_file_upload',
+    ];
 
-	public function jawaban_fitbs()
-	{
-		return $this->hasMany(JawabanFitb::class, 'soal_id');
-	}
+    public function modul()
+    {
+        return $this->belongsTo(Modul::class);
+    }
+
+    public function jawaban_fitbs()
+    {
+        return $this->hasMany(JawabanFitb::class, 'soal_id');
+    }
 }

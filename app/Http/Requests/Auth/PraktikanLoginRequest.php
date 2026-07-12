@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
-use Illuminate\Support\Str;
 use Illuminate\Auth\Events\Lockout;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PraktikanLoginRequest extends FormRequest
@@ -45,9 +45,10 @@ class PraktikanLoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'kode' => trans('auth.failed'),
+                'nim' => trans('auth.failed'),
             ]);
         }
+        RateLimiter::clear($this->throttleKey());
     }
 
     /**
@@ -55,7 +56,6 @@ class PraktikanLoginRequest extends FormRequest
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-
     public function ensureIsNotRateLimited(): void
     {
         if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
@@ -67,7 +67,7 @@ class PraktikanLoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
+            'nim' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -79,6 +79,6 @@ class PraktikanLoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('nim')) . '|' . $this->ip());
+        return Str::transliterate(Str::lower($this->string('nim')).'|'.$this->ip());
     }
 }

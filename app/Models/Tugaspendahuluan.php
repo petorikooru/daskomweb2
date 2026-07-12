@@ -7,39 +7,46 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class Tugaspendahuluan
- * 
+ *
  * @property int $id
  * @property int $modul_id
  * @property string $pembahasan
  * @property bool $isActive
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * 
  * @property Modul $modul
- *
- * @package App\Models
+ * @property Collection|Kelas[] $activeKelas
  */
 class Tugaspendahuluan extends Model
 {
-	protected $table = 'tugaspendahuluans';
+    protected $table = 'tugaspendahuluans';
 
-	protected $casts = [
-		'modul_id' => 'int',
-		'isActive' => 'bool'
-	];
+    protected $casts = [
+        'modul_id' => 'int',
+        'isActive' => 'bool',
+    ];
 
-	protected $fillable = [
-		'modul_id',
-		'pembahasan',
-		'isActive'
-	];
+    protected $fillable = [
+        'modul_id',
+        'pembahasan',
+        'isActive',
+    ];
 
-	public function modul()
-	{
-		return $this->belongsTo(Modul::class);
-	}
+    public function modul()
+    {
+        return $this->belongsTo(Modul::class);
+    }
+
+    /**
+     * Get the classes that are active for this tugas pendahuluan.
+     */
+    public function activeKelas()
+    {
+        return $this->belongsToMany(Kelas::class, 'tugaspendahuluan_kelas', 'tugaspendahuluan_id', 'kelas_id');
+    }
 }

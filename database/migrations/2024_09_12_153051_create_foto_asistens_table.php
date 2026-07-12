@@ -15,6 +15,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->char('kode', 3)->index('foto_asistens_kode_foreign');
             $table->text('foto');
+            $table->text('file_id');
             $table->timestamps();
         });
     }

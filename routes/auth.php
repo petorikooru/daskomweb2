@@ -1,22 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Redirect;
-use App\Http\Middleware\RedirectIfAuthenticated;
-use App\Http\Controllers\Auth\PasswordController;
-use App\Http\Controllers\Auth\NewPasswordController;
-use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\LoginAsistenController;
 use App\Http\Controllers\Auth\LoginPraktikanController;
 use App\Http\Controllers\Auth\PasswordAsistenController;
 use App\Http\Controllers\Auth\PasswordPraktikanController;
-use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredAsistenController;
-use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\RegisteredPraktikanController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\Auth\EmailVerificationPromptController;
-use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     // Route::post('register/asisten', [RegisteredAsistenController::class, 'store']);
@@ -33,7 +24,6 @@ Route::prefix('asisten')->group(function () {
     Route::post('logout', [LoginAsistenController::class, 'destroy'])
         ->name('logout.req.asisten')->middleware(['auth:asisten', 'can:logout']);
 });
-
 
 Route::middleware('guest')->group(function () {
     // Route::post('register/praktikan', [RegisteredPraktikanController::class, 'store']);
