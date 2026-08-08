@@ -39,18 +39,26 @@ class AsistenFactory extends Factory
         ];
     }
 
-    public function withRoles(array $roleName)
+    public function withRoles(array $roleNames)
     {
-        return $this->afterCreating(function (Asisten $asisten) {
-            // Assign role in Spatie
-            $asisten->assignRole($role);
+        return $this
+            ->state(function () use ($roleNames) {
+                $roleName = fake()->randomElement($roleNames);
 
-            // // Sync `role_id` in the asistens table
-            // if (!$asisten->role_id) {
-            //     $asisten->role_id = $role->id;
-            //     $asisten->save();
-            // }
+                $role = Role::where('name', $roleName)
+                    ->where('guard_name', 'asisten')
+                    ->firstOrFail();
 
-        });
+                return [
+                    'role_id' => $role->id,
+                ];
+            })
+            ->afterCreating(function (Asisten $asisten) {
+                $role = Role::where('id', $asisten->role_id)
+                    ->where('guard_name', 'asisten')
+                    ->firstOrFail();
+
+                $asisten->syncRoles([$role]);
+            });
     }
 }

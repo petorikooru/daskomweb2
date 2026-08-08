@@ -15,6 +15,7 @@ use App\Models\SoalTk;
 use App\Models\SoalTp;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 class DatabaseSeeder extends Seeder
 {
@@ -24,74 +25,78 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // First seeding
-        // Modul::factory(20)->create();
-        // Role::create(['name' => 'SOFTWARE', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'KORDAS', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'WAKORDAS', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'KOORPRAK', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'ADMIN', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'HARDWARE', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'DDC', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'ATC', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'RDC', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'HRD', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'CMD', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
-        // Role::create(['name' => 'MLC', 'guard_name' => 'asisten', 'created_at' => now(), 'updated_at' => now()]);
+        $this->call(RolePermissionsSeeder::class);
+
+        Modul::factory(20)->create();
 
         // end Of First Seeding
 
         // ////////////////////////////////////////////////////////////
 
         // Second Seeding
-        // Kelas::factory(10)->create();
+        Kelas::factory(10)->create();
 
-        // Asisten::factory(10)->create();
-        // $asisten = Asisten::factory(90)->withRoles(['SOFTWARE', 'KORDAS', 'WAKORDAS', 'KOORPRAK', 'ADMIN', 'HARDWARE', 'DDC', 'ATC', 'RDC', 'HRD', 'CMD', 'MLC'])->create();
+        Asisten::factory(30)
+            ->withRoles([
+                'SOFTWARE',
+                'KORDAS',
+                'WAKORDAS',
+                'KOORPRAK',
+                'ADMIN',
+                'HARDWARE',
+                'DDC',
+                'ATC',
+                'RDC',
+                'HRD',
+                'CMD',
+                'MLC',
+            ])
+            ->create();
 
-        // DB::table('configurations')->insert([
-        //     [
-        //         'tp_activation' => 1,
-        //         'tubes_activation' => 0,
-        //         'polling_activation' => 1,
-        //         'secretfeature_activation' => 0,
-        //         'registrationPraktikan_activation' => 1,
-        //         'registrationAsisten_activation' => 1,
-        //         'kode_asisten' => 'BOT',
-        //         'created_at' => now(),
-        //         'updated_at' => now(),
-        //     ],
-        // ]);
+        DB::table('configurations')->insert([
+            [
+                'tp_activation' => 1,
+                'tubes_activation' => 0,
+                'polling_activation' => 1,
+                'secretfeature_activation' => 0,
+                'registrationPraktikan_activation' => 1,
+                'registrationAsisten_activation' => 1,
+                'kode_asisten' => 'BOT',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
 
-        // // buat polling
-        // $words = [
-        //     'Terjaim',
-        //     'Terasik',
-        //     'Terganteng',
-        //     'Tercantik',
-        //     'Terjamet',
-        //     'Terwibu',
-        //     'Tergalak',
-        //     'Tergalau',
-        //     'Termager',
-        //     'Terkocak',
-        //     'Tergaring',
-        //     'Tersantuy',
-        //     'Terimut',
-        //     'Tercool',
-        //     'Terpelit',
-        //     'Terkece',
-        //     'Terkpop',
-        // ];
+        // buat polling
+        $words = [
+            'Terjaim',
+            'Terasik',
+            'Terganteng',
+            'Tercantik',
+            'Terjamet',
+            'Terwibu',
+            'Tergalak',
+            'Tergalau',
+            'Termager',
+            'Terkocak',
+            'Tergaring',
+            'Tersantuy',
+            'Terimut',
+            'Tercool',
+            'Terpelit',
+            'Terkece',
+            'Terkpop',
+        ];
 
-        // foreach ($words as $word) {
-        //     DB::table('jenis_pollings')->insert([
-        //         'judul' => $word,
-        //         'created_at' => now(),
-        //         'updated_at' => now(),
-        //     ]);
-        // }
+        foreach ($words as $word) {
+            DB::table('jenis_pollings')->insert([
+                'judul' => $word,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
-        // // buat kode pelanggaran
+        // buat kode pelanggaran
         // DB::table('kode_pelanggarans')->insert([
         //     [
         //         'pelanggaran' => 'Belum Input Nilai',
@@ -108,7 +113,7 @@ class DatabaseSeeder extends Seeder
         // Third Seeding
 
         // // buat praktikan
-        // Praktikan::factory()->count(30)->create();
+        Praktikan::factory()->count(30)->withRole()->create();
 
         SoalTp::factory()->count(10)->create(); // Menghasilkan 10 record untuk tabel soal_tps
         SoalTa::factory()->count(10)->create(); // Menghasilkan 10 record untuk tabel soal_tas
