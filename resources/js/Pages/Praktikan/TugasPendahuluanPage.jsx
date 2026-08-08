@@ -21,7 +21,87 @@ const normaliseQuestions = (items) =>
             id: item.id,
             text: item.soal ?? item.pertanyaan ?? "",
             questionType: "essay",
+            enable_file_upload: Boolean(item.enable_file_upload),
         }));
+
+const isLikelyJsonObjectString = (value) => {
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const trimmed = value.trim();
+
+    if (trimmed === "") {
+        return false;
+    }
+
+    return (
+        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    );
+};
+
+const hydrateAnswer = (storedAnswer) => {
+    if (storedAnswer === null || storedAnswer === undefined) {
+        return "";
+    }
+
+    if (typeof storedAnswer === "object") {
+        return storedAnswer;
+    }
+
+    if (typeof storedAnswer !== "string") {
+        return String(storedAnswer ?? "");
+    }
+
+    const trimmed = storedAnswer.trim();
+
+    if (trimmed === "") {
+        return "";
+    }
+
+    if (isLikelyJsonObjectString(trimmed)) {
+        try {
+            const parsed = JSON.parse(trimmed);
+
+            if (parsed && typeof parsed === "object") {
+                return parsed;
+            }
+        } catch (error) {
+            console.warn(
+                "[TP] Failed to parse stored answer",
+                error
+            );
+        }
+    }
+
+    return storedAnswer;
+};
+
+const serialiseAnswerForSubmission = (answerValue) => {
+    if (answerValue === null || answerValue === undefined) {
+        return "";
+    }
+
+    if (typeof answerValue === "object") {
+        try {
+            return JSON.stringify(answerValue);
+        } catch (error) {
+            console.warn(
+                "[TP] Failed to stringify answer",
+                error
+            );
+
+            return "";
+        }
+    }
+
+    if (typeof answerValue === "string") {
+        return answerValue;
+    }
+
+    return String(answerValue ?? "");
+};
 
 export default function TugasPendahuluanPage() {
     const { auth } = usePage().props ?? {};
@@ -153,7 +233,10 @@ export default function TugasPendahuluanPage() {
             storedAnswers.map((item) => [Number(item?.soal_id), item?.jawaban ?? ""])
         );
 
-        const initialAnswers = data.map((question) => answerMap.get(Number(question.id)) ?? "");
+        const initialAnswers = data.map((question) => {
+            const storedAnswer = answerMap.get(Number(question.id));
+            return hydrateAnswer(storedAnswer);
+        });
         setAnswers(initialAnswers);
     }, [answersQuery.data, questionsQuery.data]);
 
@@ -186,7 +269,7 @@ export default function TugasPendahuluanPage() {
                 soal_id: Number(question.id),
                 praktikan_id: praktikanId,
                 modul_id: Number(selectedModul),
-                jawaban: String(currentAnswers[index] ?? "-").trim() || "-",
+                jawaban: serialiseAnswerForSubmission(currentAnswers[index]) || "-",
             }));
 
             submitMutation.mutate(payload);

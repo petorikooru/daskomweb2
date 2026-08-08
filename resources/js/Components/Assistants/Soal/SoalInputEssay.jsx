@@ -53,7 +53,7 @@ export default function SoalInputEssay({ kategoriSoal, modul, modules = [], onMo
 
     const controller = getSoalController(kategoriSoal);
     const supportsFileUpload = useMemo(
-        () => ["jurnal", "fitb"].includes(kategoriSoal),
+        () => ["tp", "jurnal", "fitb"].includes(kategoriSoal),
         [kategoriSoal]
     );
 

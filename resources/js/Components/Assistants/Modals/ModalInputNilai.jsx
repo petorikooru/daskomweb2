@@ -251,18 +251,30 @@ export default function ModalInputNilai({
                             : [];
 
                         return {
-                            questions: entries.map((item, index) => ({
-                                soalId: item.soal_id ?? index,
-                                question:
-                                    item.soal_text ?? "Soal tidak tersedia",
-                                answer:
-                                    typeof item.jawaban === "string"
-                                        ? item.jawaban
-                                        : "-",
-                                options: [],
-                                selectedOptionId: null,
-                                correctOptionId: null,
-                            })),
+                            questions: entries.map((item, index) => {
+                                const parsed =
+                                    normalizeAnswerWithAttachment(item);
+
+                                return {
+                                    soalId: item.soal_id ?? index,
+                                    question:
+                                        item.soal_text ??
+                                        "Soal tidak tersedia",
+
+                                    answer: parsed.answerText,
+
+                                    attachmentUrl:
+                                        parsed.attachmentUrl,
+
+                                    attachmentFileId:
+                                        parsed.attachmentFileId,
+
+                                    options: [],
+                                    selectedOptionId: null,
+                                    correctOptionId: null,
+                                };
+                            }),
+
                             notice: data?.message,
                         };
                     }
@@ -325,18 +337,30 @@ export default function ModalInputNilai({
                             : [];
 
                         return {
-                            questions: entries.map((item, index) => ({
-                                soalId: item.soal_id ?? index,
-                                question:
-                                    item.soal_text ?? "Soal tidak tersedia",
-                                answer:
-                                    typeof item.jawaban === "string"
-                                        ? item.jawaban
-                                        : "-",
-                                options: [],
-                                selectedOptionId: null,
-                                correctOptionId: null,
-                            })),
+                            questions: entries.map((item, index) => {
+                                const parsed =
+                                    normalizeAnswerWithAttachment(item);
+
+                                return {
+                                    soalId: item.soal_id ?? index,
+                                    question:
+                                        item.soal_text ??
+                                        "Soal tidak tersedia",
+
+                                    answer: parsed.answerText,
+
+                                    attachmentUrl:
+                                        parsed.attachmentUrl,
+
+                                    attachmentFileId:
+                                        parsed.attachmentFileId,
+
+                                    options: [],
+                                    selectedOptionId: null,
+                                    correctOptionId: null,
+                                };
+                            }),
+
                             notice: data?.message,
                         };
                     }
