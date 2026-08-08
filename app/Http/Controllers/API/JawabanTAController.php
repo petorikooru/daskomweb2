@@ -69,7 +69,7 @@ class JawabanTAController extends Controller
             'praktikan_id' => ['required', 'integer'],
             'modul_id' => ['required', 'integer'],
             'answers' => ['present', 'array'],
-            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tas,id'. 'distinct'],
+            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tas,id', 'distinct'],
             'answers.*.opsi_id' => ['required', 'integer', 'exists:soal_opsis,id'],
         ]);
 
