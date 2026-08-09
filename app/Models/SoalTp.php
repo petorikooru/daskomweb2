@@ -31,11 +31,13 @@ class SoalTp extends Model
 
     protected $casts = [
         'modul_id' => 'int',
+        'enable_file_upload' => 'boolean',
     ];
 
     protected $fillable = [
         'modul_id',
         'soal',
+        'enable_file_upload',
     ];
 
     public function modul()

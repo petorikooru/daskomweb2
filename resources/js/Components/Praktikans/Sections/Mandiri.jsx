@@ -8,26 +8,14 @@ export default function Mandiri({
     questions = [],
     answers = [],
     setAnswers,
-    setQuestionsCount,
-    onSubmitTask,
     tipeSoal = null,
     praktikanId = null,
     isCommentEnabled = false,
 }) {
-    useEffect(() => {
-        setQuestionsCount(Array.isArray(questions) ? questions.length : 0);
-    }, [questions, setQuestionsCount]);
-
     const handleInputChange = (index, value) => {
         const updated = [...answers];
         updated[index] = value;
         setAnswers(updated);
-    };
-
-    const handleSubmit = () => {
-        if (onSubmitTask) {
-            onSubmitTask("Mandiri", answers);
-        }
     };
 
     if (isLoading) {

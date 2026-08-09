@@ -1,134 +1,71 @@
 import { useEffect } from "react";
-import QuestionCommentInput from "./QuestionCommentInput";
 import MarkdownRenderer from "../../MarkdownRenderer";
 
-export default function TesKeterampilan({
-    isLoading = false,
-    errorMessage = null,
-    questions = [],
-    answers = [],
-    setAnswers,
-    setQuestionsCount,
-    onSubmitTask,
-    tipeSoal = null,
-    praktikanId = null,
-    isCommentEnabled = false,
-}) {
-    useEffect(() => {
-        setQuestionsCount(Array.isArray(questions) ? questions.length : 0);
-    }, [questions, setQuestionsCount]);
+import QuestionCommentInput from "./QuestionCommentInput";
+import QuestionNavigator from "@/Components/Praktikans/Common/QuestionNavigator";
+import useQuestionNavigation from "@/hooks/praktikum/useQuestionNavigation";
 
-    const handleOptionChange = (index, optionId) => {
-        const updated = [...answers];
-        updated[index] = optionId;
-        setAnswers(updated);
+export default function TesKeterampilan({ isLoading = false, errorMessage = null, questions = [], answers = [], setAnswers, tipeSoal = "tk", praktikanId = null, isCommentEnabled = false }) {
+    const { panelRef, active, setActive, goTo } = useQuestionNavigation(questions);
+
+    const select = (index, optionId) => {
+        setActive(index);
+        setAnswers((prev) => {
+            const next = [...prev];
+            next[index] = optionId;
+            return next;
+        });
     };
 
-    const handleSubmit = () => {
-        if (onSubmitTask) {
-            onSubmitTask("TesKeterampilan", answers);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-depth-secondary">Memuat soal tes keterampilan...</p>
-            </div>
-        );
-    }
-
-    if (errorMessage) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-red-400 font-semibold">{errorMessage}</p>
-            </div>
-        );
-    }
-
-    if (!Array.isArray(questions) || questions.length === 0) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-depth-secondary">Belum ada soal tes keterampilan untuk modul ini.</p>
-            </div>
-        );
-    }
+    if (isLoading) return <State>Memuat soal Tes Keterampilan...</State>;
+    if (errorMessage) return <State error>{errorMessage}</State>;
+    if (!questions.length) return <State>Belum ada soal Tes Keterampilan untuk modul ini.</State>;
 
     return (
-        <div className=" transition-all duration-300 w-full mx-auto">
-            {/* Header */}
-            <div className="flex bg-[var(--depth-color-primary)] rounded-depth-lg py-2 px-3 mb-4 justify-center shadow-depth-lg">
-                <h1 className="text-white text-center font-bold text-lg">
-                    Tes Keterampilan
-                </h1>
-            </div>
-
-            {/* Questions Container */}
-            <div className="space-y-5 max-h-[80vh] p-4 pb-14 rounded-depth-lg border border-depth bg-depth-card overflow-y-auto overflow-x-hidden shadow-depth-lg">
-                {questions.map((question, index) => (
-                    <div
-                        key={question.id ?? index}
-                        className="p-3.5 rounded-depth-lg hover:shadow-depth-lg transition-all duration-200 w-[70%]"
-                    >
-                        {/* Question Number and Text */}
-                        <div className="mb-3">
-                            <div className="flex items-start gap-2.5">
-                                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-depth-full bg-[var(--depth-color-primary)] text-white font-bold text-xs shadow-depth-sm">
-                                    {index + 1}
-                                </span>
-                                <div className="flex-1 text-depth-primary font-medium text-sm leading-relaxed">
-                                    <MarkdownRenderer content={question.text} />
+        <div className="w-full p-5 py-0">
+            <Header />
+            <div ref={panelRef} className="max-h-[80vh] overflow-y-auto overflow-x-hidden rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-lg" style={{ overflowAnchor: "none" }}>
+                <QuestionNavigator questions={questions} answers={answers} active={active} onChange={goTo} />
+                <div className="space-y-4">
+                    {questions.map((q, index) => (
+                        <div key={q.id ?? index} data-question-index={index} onClick={() => setActive(index)} onFocusCapture={() => setActive(index)} className="rounded-depth-lg border border-depth bg-depth-interactive p-4 shadow-depth-md">
+                            <div className="mb-4 flex items-start gap-3">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-depth-full bg-[var(--depth-color-primary)] text-xs font-bold text-white">{index + 1}</span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-sm font-medium leading-relaxed text-depth-primary"><MarkdownRenderer content={q.text} /></div>
+                                    <QuestionCommentInput questionId={q.id ?? q.soalId ?? q.soal_id ?? null} tipeSoal={tipeSoal} praktikanId={praktikanId} isEnabled={isCommentEnabled} className="mt-2" />
                                 </div>
                             </div>
-                            <QuestionCommentInput
-                                questionId={question.id ?? question.soalId ?? question.soal_id ?? null}
-                                tipeSoal={tipeSoal}
-                                praktikanId={praktikanId}
-                                isEnabled={isCommentEnabled}
-                                className="pl-11"
-                            />
-                        </div>
-
-                        {/* Options */}
-                        <div className="space-y-2 pl-8">
-                            {(question.options ?? []).map((option, optIdx) => {
-                                const isSelected = answers[index] === option.id;
-                                const optionLabels = ['A', 'B', 'C', 'D'];
-
-                                return (
-                                    <label
-                                        key={option.id}
-                                        className={`max-w-2xl group flex gap-2.5 rounded-depth-md border px-3 py-2 text-xs transition-all duration-200 cursor-pointer ${isSelected
-                                            ? "border-[var(--depth-color-primary)] bg-[var(--depth-color-primary)]/15 shadow-depth-sm scale-[1.01]"
-                                            : "border-depth bg-depth-card hover:border-[var(--depth-color-primary)]/40 hover:bg-[var(--depth-color-primary)]/5 hover:shadow-depth-sm"
-                                            }`}
-                                        onClick={() => handleOptionChange(index, option.id)}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name={`tes-keterampilan-${question.id}`}
-                                            value={option.id}
-                                            checked={isSelected}
-                                            onChange={() => { }}
-                                            className="sr-only"
-                                        />
-                                        <span className={`mr-1.5 flex items-center justify-center w-5 h-5 rounded-depth-md text-[10px] font-bold transition-all duration-200 flex-shrink-0 ${isSelected
-                                            ? "bg-[var(--depth-color-primary)] text-white shadow-depth-sm"
-                                            : "bg-depth-interactive text-depth-secondary group-hover:bg-[var(--depth-color-primary)]/20 group-hover:text-depth-primary"
-                                            }`}>
-                                            {optionLabels[optIdx]}
-                                        </span>
-                                        <div className={`flex-1 leading-relaxed transition-colors duration-200 text-sm ${isSelected ? "text-depth-primary font-medium" : "text-depth-primary"
-                                            }`}>
-                                            <MarkdownRenderer content={option.text} />
+                            <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+                                {(q.options ?? []).map((option) => {
+                                    const selected = String(answers[index] ?? "") === String(option.id);
+                                    return (
+                                        <div key={option.id} role="radio" tabIndex={0} aria-checked={selected} onMouseDown={(e) => e.preventDefault()} onClick={() => select(index, option.id)} onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                select(index, option.id);
+                                            }
+                                        }} className={`cursor-pointer rounded-depth-md border p-3 text-sm transition ${selected ? "border-[var(--depth-color-primary)] bg-[var(--depth-color-primary)] text-white shadow-depth-md" : "border-depth bg-depth-card text-depth-primary hover:bg-depth-interactive"}`}>
+                                            <div className="flex items-start gap-2">
+                                                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-white" : "border-depth"}`}>{selected && <span className="h-2 w-2 rounded-full bg-white" />}</span>
+                                                <div className="min-w-0 flex-1"><MarkdownRenderer content={option.text} /></div>
+                                            </div>
                                         </div>
-                                    </label>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
+}
+
+function Header() {
+    return <div className="mb-4 flex justify-center rounded-depth-lg bg-[var(--depth-color-primary)] px-3 py-2 shadow-depth-lg"><h1 className="text-lg font-bold text-white">Tes Keterampilan</h1></div>;
+}
+
+function State({ children, error = false }) {
+    return <div className={`mx-auto mt-[20vh] p-5 text-center text-sm font-semibold ${error ? "text-red-400" : "text-depth-secondary"}`}>{children}</div>;
 }
