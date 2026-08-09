@@ -64,7 +64,7 @@ class SoalJurnalController extends Controller
             $all_jurnal = SoalJurnal::where('modul_id', $id)->get();
             if ($all_jurnal->isEmpty()) {
                 return response()->json([
-                    'message' => "Soal dengan modul ID $id tidak ditemukan.",
+                    'message' => "Soal dengan modul ID $id tidak ditemukan, atau mungkin belum ada inputan sama sekali :(",
                 ], 404);
             }
 

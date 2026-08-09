@@ -25,14 +25,12 @@ class SoalTPController extends Controller
             // Validasi input
             $request->validate([
                 'soal' => 'required|string|max:10000',
-                'enable_file_upload' => 'sometimes|boolean',
             ]);
 
             // Menyimpan soal baru
             $soal = SoalTp::create([
                 'modul_id' => $id,
                 'soal' => $request->soal,
-                'enable_file_upload' => $request->boolean('enable_file_upload'),
             ]);
 
             return response()->json([
@@ -78,8 +76,7 @@ class SoalTPController extends Controller
                 'modul_id' => 'required|integer|exists:moduls,id',
                 // "isEssay" => "required|boolean",
                 // "isProgram" => "required|boolean",
-                'soal' => 'required|string|max:10000',
-                'enable_file_upload' => 'sometimes|boolean',
+                'soal' => 'required|string|max:1000',
             ]);
             $soal = SoalTp::find($id);
             if (! $soal) {
@@ -100,10 +97,6 @@ class SoalTPController extends Controller
             // $soal->isEssay = $request->isEssay;
             // $soal->isProgram = $request->isProgram;
             $soal->soal = $request->soal;
-            if ($request->has('enable_file_upload')) {
-                $soal->enable_file_upload =
-                    $request->boolean('enable_file_upload');
-            }
             $soal->updated_at = now();
             $soal->save();
 
