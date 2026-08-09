@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Services\Praktikum\DifficultyQuestionRandomizer;
 use App\Http\Controllers\Controller;
 use App\Models\Modul;
 use App\Models\Praktikan;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 class SoalTKController extends Controller
 {
     public function index(): void {}
+
+    public function __construct(private DifficultyQuestionRandomizer $randomizer) {}
 
     public function store(Request $request, int $modulId): JsonResponse
     {
@@ -52,73 +55,61 @@ class SoalTKController extends Controller
     public function show(Request $request, int $modulId): JsonResponse
     {
         $modul = Modul::find($modulId);
-        if (! $modul) {
-            return response()->json([
-                'message' => "Modul dengan ID {$modulId} tidak ditemukan.",
-            ], 404);
+        if (!$modul) {
+            return response()->json(['message' => "Modul dengan ID {$modulId} tidak ditemukan."], 404);
         }
 
         $user = auth('praktikan')->user();
         $query = SoalTk::with('options')->where('modul_id', $modulId);
-
         $ids = collect(Arr::wrap($request->query('question_ids')))
-            ->flatMap(fn ($v) => is_array($v) ? $v : explode(',', (string) $v))
-            ->map(fn ($v) => (int) $v)
-            ->filter(fn ($v) => $v > 0)
-            ->unique()
+            ->flatMap(fn ($value) => is_array($value) ? $value : explode(',', (string) $value))
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn ($value) => $value > 0)
             ->values();
 
-        if (! $user) {
-            $soals = $ids->isNotEmpty()
-                ? (clone $query)->whereIn('id', $ids)->get()
-                : $query->get();
+        if ($user) {
+            if ($this->randomizer->isTot($user)) {
+                $soals = (clone $query)->orderBy('id')->get();
+            } else {
+                $counts = $this->randomizer->counts($modulId, 'ta');
 
-            return response()->json([
-                'message' => 'Soal retrieved successfully.',
-                'data' => $soals
-                    ->map(fn (SoalTk $soal) => $this->formatAssistantSoal($soal))
-                    ->values(),
-            ]);
-        }
+                if ($ids->isEmpty()) {
+                    if ($counts) {
+                        $soals = $this->randomizer->randomize(clone $query, $counts);
+                    } else {
+                        $target = min(10, (clone $query)->count());
+                        $soals = (clone $query)->inRandomOrder()->take($target)->get();
+                    }
+                } elseif ($counts) {
+                    $soals = $this->randomizer->restore(clone $query, $ids, $counts);
+                } else {
+                    $target = min(10, (clone $query)->count());
+                    $byId = (clone $query)->whereIn('id', $ids)->get()->keyBy('id');
+                    $soals = $ids->map(fn ($id) => $byId->get($id))->filter()->take($target)->values();
+                    $needed = max(0, $target - $soals->count());
 
-        $limit = $this->isTotPraktikan($user) ? 15 : 10;
-        $target = min($limit, (clone $query)->count());
-
-        if ($ids->isEmpty()) {
-            $soals = (clone $query)
-                ->inRandomOrder()
-                ->take($target)
-                ->get();
-        } else {
-            $byId = (clone $query)
-                ->whereIn('id', $ids)
-                ->get()
-                ->keyBy('id');
-
-            $soals = $ids
-                ->map(fn ($id) => $byId->get($id))
-                ->filter()
-                ->take($target)
-                ->values();
-
-            $needed = max(0, $target - $soals->count());
-
-            if ($needed) {
-                $extra = (clone $query)
-                    ->whereNotIn('id', $soals->pluck('id'))
-                    ->inRandomOrder()
-                    ->take($needed)
-                    ->get();
-
-                $soals = $soals->merge($extra)->values();
+                    if ($needed) {
+                        $extra = (clone $query)->whereNotIn('id', $soals->pluck('id'))->inRandomOrder()->take($needed)->get();
+                        $soals = $soals->merge($extra)->values();
+                    }
+                }
             }
+
+            $data = $soals->map(fn (SoalTk $soal) => $this->formatPraktikanSoal($soal))->values();
+        } else {
+            if ($ids->isNotEmpty()) {
+                $byId = (clone $query)->whereIn('id', $ids)->get()->keyBy('id');
+                $soals = $ids->map(fn ($id) => $byId->get($id))->filter()->values();
+            } else {
+                $soals = $query->get();
+            }
+
+            $data = $soals->map(fn (SoalTk $soal) => $this->formatAssistantSoal($soal))->values();
         }
 
         return response()->json([
             'message' => 'Soal retrieved successfully.',
-            'data' => $soals
-                ->map(fn (SoalTk $soal) => $this->formatPraktikanSoal($soal))
-                ->values(),
+            'data' => $data,
         ]);
     }
 
@@ -139,6 +130,7 @@ class SoalTKController extends Controller
                 $soal->update([
                     'modul_id' => $validated['modul_id'],
                     'pertanyaan' => $validated['pertanyaan'],
+                    'difficulty' => $validated['difficulty'] ?? $soal->difficulty,
                 ]);
 
                 $optionIds = $this->syncOptions($soal, $validated['options']);
@@ -208,6 +200,7 @@ class SoalTKController extends Controller
                 Rule::unique('soal_tks', 'pertanyaan')
                     ->where(fn ($query) => $query->where('modul_id', $modulId)),
             ],
+            'difficulty' => ['nullable', Rule::in(['easy', 'medium', 'hard'])],
             'options' => ['required', 'array', 'size:4'],
             'options.*.text' => ['required', 'string', 'max:1000'],
             'correct_option' => ['required', 'integer', 'between:0,3'],
@@ -228,6 +221,7 @@ class SoalTKController extends Controller
                     ->where(fn ($query) => $query->where('modul_id', $modulId))
                     ->ignore($soal->id),
             ],
+            'difficulty' => ['sometimes', 'nullable', Rule::in(['easy', 'medium', 'hard'])],
             'options' => ['required', 'array', 'size:4'],
             'options.*.id' => ['nullable', 'integer', 'exists:soal_opsis,id'],
             'options.*.text' => ['required', 'string', 'max:1000'],
@@ -337,6 +331,7 @@ class SoalTKController extends Controller
         return [
             'id' => $soal->id,
             'pertanyaan' => $soal->pertanyaan,
+            'difficulty' => $soal->difficulty,
             'modul_id' => $soal->modul_id,
             'opsi_benar_id' => $soal->opsi_benar_id,
             'options' => $options,
