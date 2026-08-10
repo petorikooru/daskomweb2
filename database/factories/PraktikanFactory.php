@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Kelas;
+use App\Models\Praktikan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -30,4 +31,10 @@ class PraktikanFactory extends Factory
             'updated_at' => now(),
         ];
     }
+    public function withRole()
+    {
+        return $this->afterCreating(function (Praktikan $praktikan) {
+            $praktikan->assignRole('PRAKTIKAN');
+    });
+}
 }

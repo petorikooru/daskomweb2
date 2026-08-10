@@ -69,7 +69,7 @@ class JawabanTAController extends Controller
             'praktikan_id' => ['required', 'integer'],
             'modul_id' => ['required', 'integer'],
             'answers' => ['present', 'array'],
-            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tas,id'],
+            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tas,id', 'distinct'],
             'answers.*.opsi_id' => ['required', 'integer', 'exists:soal_opsis,id'],
         ]);
 
@@ -114,7 +114,8 @@ class JawabanTAController extends Controller
                 ->get();
 
             $correct = $jawaban->filter(fn (JawabanTa $item) => $item->opsi_id === $item->soal_ta?->opsi_benar_id)->count();
-            $nilai = $jawaban->isNotEmpty() ? ($correct / $jawaban->count()) * 100 : 0;
+            $totalQuestions = SoalTa::where('modul_id', $modulId)->count();
+            $nilai = $totalQuestions > 0 ? round(($correct / $totalQuestions) * 100, 2) : 0;
 
             return response()->json([
                 'status' => 'success',

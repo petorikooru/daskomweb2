@@ -69,7 +69,7 @@ class JawabanTKController extends Controller
             'praktikan_id' => ['required', 'integer'],
             'modul_id' => ['required', 'integer'],
             'answers' => ['present', 'array'],
-            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tks,id'],
+            'answers.*.soal_id' => ['required', 'integer', 'exists:soal_tks,id', 'distinct'],
             'answers.*.opsi_id' => ['required', 'integer', 'exists:soal_opsis,id'],
         ]);
 
@@ -113,7 +113,8 @@ class JawabanTKController extends Controller
                 ->get();
 
             $correct = $jawaban->filter(fn (JawabanTk $item) => $item->opsi_id === $item->soal_tk?->opsi_benar_id)->count();
-            $nilai = $jawaban->isNotEmpty() ? ($correct / $jawaban->count()) * 100 : 0;
+            $totalQuestions = SoalTk::where('modul_id', $modulId)->count();
+            $nilai = $totalQuestions > 0 ? round(($correct / $totalQuestions) * 100, 2) : 0;
 
             return response()->json([
                 'status' => 'success',
