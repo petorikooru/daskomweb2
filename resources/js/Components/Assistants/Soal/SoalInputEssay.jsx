@@ -7,6 +7,7 @@ import { getSoalController } from "@/lib/soalControllers";
 import { ModalOverlay } from "@/Components/Common/ModalPortal";
 import ModalCloseButton from "@/Components/Common/ModalCloseButton";
 import ModalBatchEditSoal from "../Modals/ModalBatchEditSoal";
+import ModalLegacyBatchEditSoal from "../Modals/ModalLegacyBatchEditSoal";
 import SoalCommentsButton from "./SoalCommentsButton";
 import SoalMarkdownEditor from "./SoalMarkdownEditor";
 import MarkdownRenderer from "../../MarkdownRenderer";
@@ -34,10 +35,8 @@ export default function SoalInputEssay({
     const [editingSoal, setEditingSoal] = useState(null);
     const [deleteCandidate, setDeleteCandidate] = useState(null);
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-    const [batchState, setBatchState] = useState({
-        regularModuleId: "",
-        englishModuleId: "",
-    });
+    const [isLegacyBatchModalOpen, setIsLegacyBatchModalOpen] = useState(false);
+    const [batchState, setBatchState] = useState({ regularModuleId: "", englishModuleId: "" });
 
     const regularModules = useMemo(
         () => modules.filter((m) => Number(m?.isEnglish ?? 0) !== 1),
@@ -57,7 +56,7 @@ export default function SoalInputEssay({
 
     const supportsFileUpload = useMemo(
         () => ["tp", "jurnal", "fitb"].includes(kategoriSoal),
-        [kategoriSoal]
+        [kategoriSoal],
     );
 
     const invalidate = (moduleId = modul) => {
@@ -69,8 +68,7 @@ export default function SoalInputEssay({
 
     const postSoalMutation = useMutation({
         mutationFn: async (payload) => {
-            if (!controller)
-                throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
+            if (!controller) throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
             return (await send(controller.store(modul), payload)).data;
         },
         onSuccess: () => {
@@ -79,18 +77,13 @@ export default function SoalInputEssay({
         },
         onError: (error) => {
             console.error("Error posting soal:", error);
-            toast.error(
-                error?.response?.data?.message ??
-                    error?.message ??
-                    "Gagal menambahkan soal.",
-            );
+            toast.error(error?.response?.data?.message ?? error?.message ?? "Gagal menambahkan soal.");
         },
     });
 
     const putSoalMutation = useMutation({
         mutationFn: async ({ soalId, payload }) => {
-            if (!controller)
-                throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
+            if (!controller) throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
             return (await send(controller.update(soalId), payload)).data;
         },
         onSuccess: (_, variables) => {
@@ -101,18 +94,13 @@ export default function SoalInputEssay({
         },
         onError: (error) => {
             console.error("Error updating soal:", error);
-            toast.error(
-                error?.response?.data?.message ??
-                    error?.message ??
-                    "Gagal memperbarui soal.",
-            );
+            toast.error(error?.response?.data?.message ?? error?.message ?? "Gagal memperbarui soal.");
         },
     });
 
     const deleteSoalMutation = useMutation({
         mutationFn: async (soalId) => {
-            if (!controller)
-                throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
+            if (!controller) throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
             await send(controller.destroy(soalId));
         },
         onSuccess: () => {
@@ -122,21 +110,15 @@ export default function SoalInputEssay({
         },
         onError: (error) => {
             console.error("Error deleting soal:", error);
-            toast.error(
-                error?.response?.data?.message ??
-                    error?.message ??
-                    "Gagal menghapus soal.",
-            );
+            toast.error(error?.response?.data?.message ?? error?.message ?? "Gagal menghapus soal.");
         },
     });
 
     const syncBatchModule = async ({ modulId, items }) => {
-        if (!controller)
-            throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
+        if (!controller) throw new Error(`Kategori soal tidak didukung: ${kategoriSoal}`);
 
         const targetModulId = Number(modulId);
-        if (!targetModulId || Number.isNaN(targetModulId))
-            throw new Error("Modul belum dipilih.");
+        if (!targetModulId || Number.isNaN(targetModulId)) throw new Error("Modul belum dipilih.");
 
         for (const item of items ?? []) {
             const soalId = item?.id ?? null;
@@ -149,17 +131,15 @@ export default function SoalInputEssay({
                     continue;
                 }
 
-                if (!soal)
-                    throw new Error(
-                        "Soal tidak boleh kosong. Gunakan tombol Hapus jika ingin menghapus soal.",
-                    );
+                if (!soal) {
+                    throw new Error("Soal tidak boleh kosong. Gunakan tombol Hapus jika ingin menghapus soal.");
+                }
 
                 const originalSoal = String(item?.originalSoal ?? "").trim();
                 const questionChanged = soal !== originalSoal;
                 const uploadChanged =
                     supportsFileUpload &&
-                    Boolean(item.enable_file_upload) !==
-                        Boolean(item.originalEnableFileUpload);
+                    Boolean(item.enable_file_upload) !== Boolean(item.originalEnableFileUpload);
 
                 if (!questionChanged && !uploadChanged) continue;
 
@@ -169,23 +149,14 @@ export default function SoalInputEssay({
                     oldSoal: item.originalSoal ?? soal,
                 };
 
-                if (supportsFileUpload)
-                    payload.enable_file_upload = Boolean(
-                        item.enable_file_upload,
-                    );
-
+                if (supportsFileUpload) payload.enable_file_upload = Boolean(item.enable_file_upload);
                 await send(controller.update(soalId), payload);
                 continue;
             }
 
             if (!deleted && soal) {
                 const payload = { soal };
-
-                if (supportsFileUpload)
-                    payload.enable_file_upload = Boolean(
-                        item.enable_file_upload,
-                    );
-
+                if (supportsFileUpload) payload.enable_file_upload = Boolean(item.enable_file_upload);
                 await send(controller.store(targetModulId), payload);
             }
         }
@@ -197,27 +168,18 @@ export default function SoalInputEssay({
             await syncBatchModule(english);
         },
         onSuccess: (_, variables) => {
-            [
-                ...new Set(
-                    [
-                        variables?.regular?.modulId,
-                        variables?.english?.modulId,
-                        modul,
-                    ]
-                        .filter(Boolean)
-                        .map(String),
-                ),
-            ].forEach(invalidate);
+            const moduleIds = [
+                variables?.regular?.modulId,
+                variables?.english?.modulId,
+                modul,
+            ].filter(Boolean).map(String);
 
+            [...new Set(moduleIds)].forEach(invalidate);
             toast.success("Soal modul ID dan EN berhasil diperbarui.");
         },
         onError: (error) => {
             console.error("Error batch updating soal:", error);
-            toast.error(
-                error?.response?.data?.message ??
-                    error?.message ??
-                    "Gagal memperbarui soal.",
-            );
+            toast.error(error?.response?.data?.message ?? error?.message ?? "Gagal memperbarui soal.");
         },
     });
 
@@ -255,9 +217,7 @@ export default function SoalInputEssay({
         postSoalMutation.mutate(
             {
                 soal,
-                enable_file_upload: supportsFileUpload
-                    ? enableFileUploadNew
-                    : false,
+                enable_file_upload: supportsFileUpload ? enableFileUploadNew : false,
             },
             {
                 onSuccess: () => {
@@ -273,8 +233,7 @@ export default function SoalInputEssay({
     const handleStartEdit = (item) => {
         setIsAddingSoal(false);
 
-        const originalModulId =
-            item?.modul_id ?? (modul ? Number(modul) : null);
+        const originalModulId = item?.modul_id ?? (modul ? Number(modul) : null);
 
         setEditingSoal({
             id: item.id,
@@ -287,9 +246,7 @@ export default function SoalInputEssay({
     };
 
     const updateEditingSoal = (field, value) =>
-        setEditingSoal((prev) =>
-            prev ? { ...prev, [field]: value } : prev,
-        );
+        setEditingSoal((prev) => prev ? { ...prev, [field]: value } : prev);
 
     const handleCancelEdit = () => {
         if (!putSoalMutation.isPending) setEditingSoal(null);
@@ -310,10 +267,9 @@ export default function SoalInputEssay({
             return;
         }
 
-        const previousModulKey =
-            editingSoal.originalModulId != null
-                ? String(editingSoal.originalModulId)
-                : String(modul ?? "");
+        const previousModulKey = editingSoal.originalModulId != null
+            ? String(editingSoal.originalModulId)
+            : String(modul ?? "");
         const nextModulKey = String(nextModulId);
 
         const payload = {
@@ -322,10 +278,9 @@ export default function SoalInputEssay({
             oldSoal: editingSoal.originalSoal ?? soal,
         };
 
-        if (supportsFileUpload)
-            payload.enable_file_upload = Boolean(
-                editingSoal.enable_file_upload,
-            );
+        if (supportsFileUpload) {
+            payload.enable_file_upload = Boolean(editingSoal.enable_file_upload);
+        }
 
         putSoalMutation.mutate(
             {
@@ -356,18 +311,13 @@ export default function SoalInputEssay({
 
     const handleOpenBatchModal = () => {
         if (!regularModules.length || !englishModules.length) {
-            toast.error(
-                "Modul Indonesia dan English harus tersedia untuk Batch Edit.",
-            );
+            toast.error("Modul Indonesia dan English harus tersedia untuk Batch Edit.");
             return;
         }
 
         const currentModuleId = modul ? String(modul) : "";
-        const currentModule = modules.find(
-            (m) => getModuleId(m) === currentModuleId,
-        );
-        const currentIsEnglish =
-            Number(currentModule?.isEnglish ?? 0) === 1;
+        const currentModule = modules.find((m) => getModuleId(m) === currentModuleId);
+        const currentIsEnglish = Number(currentModule?.isEnglish ?? 0) === 1;
 
         setBatchState((prev) => ({
             regularModuleId:
@@ -392,6 +342,130 @@ export default function SoalInputEssay({
         setIsBatchModalOpen(false);
     };
 
+    const handleOpenLegacyBatchModal = () => {
+        if (!modul) {
+            toast.error("Pilih modul terlebih dahulu.");
+            return;
+        }
+
+        if (!controller) {
+            toast.error(
+                `Kategori soal tidak didukung: ${kategoriSoal}`,
+            );
+            return;
+        }
+
+        setIsLegacyBatchModalOpen(true);
+    };
+
+    const handleCloseLegacyBatchModal = () => {
+        if (!batchUpdateMutation.isPending) {
+            setIsLegacyBatchModalOpen(false);
+        }
+    };
+
+    const handleLegacyBatchSubmit = async ({
+        items,
+        modulId,
+    }) => {
+        if (!controller) {
+            throw new Error(
+                `Kategori soal tidak didukung: ${kategoriSoal}`,
+            );
+        }
+
+        const targetModulId = Number(modulId);
+
+        if (!targetModulId || Number.isNaN(targetModulId)) {
+            throw new Error("Modul belum dipilih.");
+        }
+
+        const currentQuestions = soalList;
+
+        if (items.length < currentQuestions.length) {
+            const shouldDelete = window.confirm(
+                `Jumlah soal berubah dari ${currentQuestions.length} menjadi ${items.length}. Soal yang tidak ada lagi akan dihapus. Lanjutkan?`,
+            );
+
+            if (!shouldDelete) {
+                return;
+            }
+        }
+
+        for (let index = 0; index < items.length; index += 1) {
+            const item = items[index];
+            const current = currentQuestions[index];
+            const soal = String(item?.soal ?? "").trim();
+
+            if (!soal) {
+                throw new Error(
+                    `Soal ${index + 1} tidak boleh kosong.`,
+                );
+            }
+
+            if (current?.id) {
+                await send(controller.update(current.id), {
+                    modul_id: targetModulId,
+                    soal,
+                    oldSoal: current.soal ?? soal,
+                    ...(supportsFileUpload
+                        ? {
+                            enable_file_upload: Boolean(
+                                item.enable_file_upload,
+                            ),
+                        }
+                        : {}),
+                });
+
+                continue;
+            }
+
+            await send(controller.store(targetModulId), {
+                soal,
+                ...(supportsFileUpload
+                    ? {
+                        enable_file_upload: Boolean(
+                            item.enable_file_upload,
+                        ),
+                    }
+                    : {}),
+            });
+        }
+
+        if (items.length < currentQuestions.length) {
+            for (
+                let index = items.length;
+                index < currentQuestions.length;
+                index += 1
+            ) {
+                const question = currentQuestions[index];
+
+                if (question?.id) {
+                    await send(
+                        controller.destroy(question.id),
+                    );
+                }
+            }
+        }
+
+        await queryClient.invalidateQueries({
+            queryKey: soalQueryKey(
+                kategoriSoal,
+                String(targetModulId),
+            ),
+        });
+
+        await queryClient.refetchQueries({
+            queryKey: soalQueryKey(
+                kategoriSoal,
+                String(targetModulId),
+            ),
+        });
+
+        toast.success("Batch soal berhasil diperbarui.");
+        setIsLegacyBatchModalOpen(false);
+    };
+
     const {
         data: batchComparisonData,
         isLoading: isBatchComparisonLoading,
@@ -403,11 +477,7 @@ export default function SoalInputEssay({
         {
             enabled:
                 isBatchModalOpen &&
-                Boolean(
-                    kategoriSoal &&
-                        batchState.regularModuleId &&
-                        batchState.englishModuleId,
-                ),
+                Boolean(kategoriSoal && batchState.regularModuleId && batchState.englishModuleId),
             keepPreviousData: false,
         },
     );
@@ -418,24 +488,29 @@ export default function SoalInputEssay({
                 <div className="flex flex-wrap justify-end gap-3">
                     <button
                         type="button"
+                        onClick={handleOpenLegacyBatchModal}
+                        disabled={!modul || soalLoading}
+                        className="rounded-depth-md border border-depth bg-depth-interactive px-6 py-2 text-sm font-semibold text-depth-primary shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        Batch Edit
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={handleOpenBatchModal}
                         disabled={!regularModules.length || !englishModules.length}
                         className="rounded-depth-md border border-depth bg-depth-interactive px-6 py-2 text-sm font-semibold text-depth-primary shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        Batch Edit ID / EN
+                        Compare Soal ID / EN
                     </button>
 
                     <button
                         type="button"
                         onClick={handleOpenTambah}
-                        disabled={
-                            isAddingSoal || postSoalMutation.isPending
-                        }
+                        disabled={isAddingSoal || postSoalMutation.isPending}
                         className="rounded-depth-md bg-[var(--depth-color-primary)] px-6 py-2 text-sm font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {isAddingSoal
-                            ? "Menambah Soal..."
-                            : "+ Tambah Soal"}
+                        {isAddingSoal ? "Menambah Soal..." : "+ Tambah Soal"}
                     </button>
                 </div>
             )}
@@ -445,18 +520,14 @@ export default function SoalInputEssay({
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-depth bg-depth-interactive px-5 py-4">
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="text-base font-semibold">
-                                    Tambah Soal Baru
-                                </h3>
-
+                                <h3 className="text-base font-semibold">Tambah Soal Baru</h3>
                                 <span className="rounded-depth-full bg-[var(--depth-color-primary)]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--depth-color-primary)]">
                                     New
                                 </span>
                             </div>
 
                             <p className="mt-1 text-xs text-depth-secondary">
-                                Tulis Markdown dan lihat hasil render secara
-                                langsung.
+                                Tulis Markdown dan lihat hasil render secara langsung.
                             </p>
                         </div>
 
@@ -479,9 +550,7 @@ export default function SoalInputEssay({
                             placeholder="Tulis soal menggunakan Markdown..."
                             supportsFileUpload={supportsFileUpload}
                             enableFileUpload={enableFileUploadNew}
-                            onToggleFileUpload={() =>
-                                setEnableFileUploadNew((v) => !v)
-                            }
+                            onToggleFileUpload={() => setEnableFileUploadNew((v) => !v)}
                             isSaving={postSoalMutation.isPending}
                             saveLabel="Tambah Soal"
                             onCancel={handleCancelTambah}
@@ -504,11 +573,7 @@ export default function SoalInputEssay({
                     )}
                 </div>
 
-                {soalLoading && (
-                    <p className="text-sm text-depth-secondary">
-                        Memuat soal...
-                    </p>
-                )}
+                {soalLoading && <p className="text-sm text-depth-secondary">Memuat soal...</p>}
 
                 {soalError && (
                     <p className="rounded-depth-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
@@ -518,9 +583,7 @@ export default function SoalInputEssay({
 
                 {!soalLoading && !soalError && soalList.length === 0 && (
                     <div className="flex min-h-[120px] flex-col items-center justify-center rounded-depth-lg border border-dashed border-depth bg-depth-card p-8 text-center">
-                        <p className="text-sm font-medium text-depth-secondary">
-                            Belum ada soal.
-                        </p>
+                        <p className="text-sm font-medium text-depth-secondary">Belum ada soal.</p>
 
                         {isEditable && (
                             <button
@@ -556,7 +619,9 @@ export default function SoalInputEssay({
                                             </span>
 
                                             {Boolean(item.enable_file_upload) && (
-                                                <span className="rounded-depth-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-600">File Upload</span>
+                                                <span className="rounded-depth-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-600">
+                                                    File Upload
+                                                </span>
                                             )}
 
                                             {isEditing && (
@@ -571,33 +636,18 @@ export default function SoalInputEssay({
                                                 {isEditable && (
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            handleOpenModalDelete(
-                                                                item,
-                                                            )
-                                                        }
+                                                        onClick={() => handleOpenModalDelete(item)}
                                                         className="flex h-9 w-9 items-center justify-center rounded-depth-md border border-depth bg-depth-interactive text-red-500 shadow-depth-sm transition hover:border-red-400 hover:shadow-depth-md"
                                                         title="Hapus soal"
-                                                        aria-label={`Hapus soal ${
-                                                            index + 1
-                                                        }`}
+                                                        aria-label={`Hapus soal ${index + 1}`}
                                                     >
-                                                        <img
-                                                            src={trashIcon}
-                                                            className="h-4 w-4"
-                                                            alt=""
-                                                        />
+                                                        <img src={trashIcon} className="h-4 w-4" alt="" />
                                                     </button>
                                                 )}
 
                                                 <SoalCommentsButton
                                                     kategoriSoal={kategoriSoal}
-                                                    modulId={
-                                                        item?.modul_id ??
-                                                        (modul
-                                                            ? Number(modul)
-                                                            : null)
-                                                    }
+                                                    modulId={item?.modul_id ?? (modul ? Number(modul) : null)}
                                                     soalId={item?.id}
                                                     variant="icon"
                                                 />
@@ -605,22 +655,12 @@ export default function SoalInputEssay({
                                                 {isEditable && (
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            handleStartEdit(
-                                                                item,
-                                                            )
-                                                        }
+                                                        onClick={() => handleStartEdit(item)}
                                                         className="flex h-9 w-9 items-center justify-center rounded-depth-md border border-depth bg-depth-interactive shadow-depth-sm transition hover:border-blue-400 hover:shadow-depth-md"
                                                         title="Edit soal"
-                                                        aria-label={`Edit soal ${
-                                                            index + 1
-                                                        }`}
+                                                        aria-label={`Edit soal ${index + 1}`}
                                                     >
-                                                        <img
-                                                            src={editIcon}
-                                                            className="edit-icon-filter h-4 w-4"
-                                                            alt=""
-                                                        />
+                                                        <img src={editIcon} className="edit-icon-filter h-4 w-4" alt="" />
                                                     </button>
                                                 )}
                                             </div>
@@ -641,75 +681,37 @@ export default function SoalInputEssay({
 
                                                         <select
                                                             id={`soal-module-${item.id}`}
-                                                            value={
-                                                                editingSoal.modul_id ??
-                                                                ""
-                                                            }
-                                                            onChange={(e) =>
-                                                                updateEditingSoal(
-                                                                    "modul_id",
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                putSoalMutation.isPending
-                                                            }
+                                                            value={editingSoal.modul_id ?? ""}
+                                                            onChange={(e) => updateEditingSoal("modul_id", e.target.value)}
+                                                            disabled={putSoalMutation.isPending}
                                                             className="w-full rounded-depth-md border border-depth bg-depth-card px-3 py-2 text-sm text-depth-primary shadow-depth-sm focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]/30 disabled:opacity-60"
                                                         >
-                                                            {modules.map(
-                                                                (m) => {
-                                                                    const id =
-                                                                        getModuleId(
-                                                                            m,
-                                                                        );
+                                                            {modules.map((m) => {
+                                                                const id = getModuleId(m);
+                                                                if (!id) return null;
 
-                                                                    if (!id)
-                                                                        return null;
-
-                                                                    return (
-                                                                        <option
-                                                                            key={
-                                                                                id
-                                                                            }
-                                                                            value={
-                                                                                id
-                                                                            }
-                                                                        >
-                                                                            {m?.judul ??
-                                                                                m?.nama ??
-                                                                                `Modul ${id}`}
-                                                                        </option>
-                                                                    );
-                                                                },
-                                                            )}
+                                                                return (
+                                                                    <option key={id} value={id}>
+                                                                        {m?.judul ?? m?.nama ?? `Modul ${id}`}
+                                                                    </option>
+                                                                );
+                                                            })}
                                                         </select>
                                                     </div>
                                                 )}
 
                                                 <SoalMarkdownEditor
                                                     value={editingSoal.soal}
-                                                    onChange={(value) =>
-                                                        updateEditingSoal(
-                                                            "soal",
-                                                            value,
-                                                        )
-                                                    }
-                                                    supportsFileUpload={
-                                                        supportsFileUpload
-                                                    }
-                                                    enableFileUpload={
-                                                        editingSoal.enable_file_upload
-                                                    }
+                                                    onChange={(value) => updateEditingSoal("soal", value)}
+                                                    supportsFileUpload={supportsFileUpload}
+                                                    enableFileUpload={editingSoal.enable_file_upload}
                                                     onToggleFileUpload={() =>
                                                         updateEditingSoal(
                                                             "enable_file_upload",
                                                             !editingSoal.enable_file_upload,
                                                         )
                                                     }
-                                                    isSaving={
-                                                        putSoalMutation.isPending
-                                                    }
+                                                    isSaving={putSoalMutation.isPending}
                                                     saveLabel="Simpan Perubahan"
                                                     onCancel={handleCancelEdit}
                                                     onSave={handleConfirmEdit}
@@ -718,13 +720,9 @@ export default function SoalInputEssay({
                                         ) : (
                                             <div className="min-w-0 max-h-[60vh] overflow-y-auto break-words rounded-depth-md bg-depth-interactive p-4 text-sm text-depth-primary shadow-depth-inset">
                                                 {item.soal ? (
-                                                    <MarkdownRenderer
-                                                        content={item.soal}
-                                                    />
+                                                    <MarkdownRenderer content={item.soal} />
                                                 ) : (
-                                                    <p className="italic text-depth-secondary">
-                                                        Soal kosong.
-                                                    </p>
+                                                    <p className="italic text-depth-secondary">Soal kosong.</p>
                                                 )}
                                             </div>
                                         )}
@@ -735,25 +733,33 @@ export default function SoalInputEssay({
                     </ul>
                 )}
             </div>
+            {isLegacyBatchModalOpen && (
+                <ModalLegacyBatchEditSoal
+                    title="Batch Edit Soal"
+                    initialValue={soalList
+                        .map((item, index) => `Soal ${index + 1}\n\n${item.soal ?? ""}`)
+                        .join("\n\n")}
+                    variant={kategoriSoal === "pg" ? "pg" : "essay"}
+                    moduleOptions={modules}
+                    initialModuleId={modul}
+                    onClose={handleCloseLegacyBatchModal}
+                    onSubmit={handleLegacyBatchSubmit}
+                    isSaving={batchUpdateMutation.isPending}
+                />
+            )}
 
             {isBatchModalOpen && (
                 <ModalBatchEditSoal
-                    title="Batch Edit Soal — ID / EN"
+                    title="Compare Soal — ID / EN"
                     regularModules={regularModules}
                     englishModules={englishModules}
                     selectedRegularModuleId={batchState.regularModuleId}
                     selectedEnglishModuleId={batchState.englishModuleId}
                     onSelectRegularModule={(value) =>
-                        setBatchState((v) => ({
-                            ...v,
-                            regularModuleId: value,
-                        }))
+                        setBatchState((v) => ({ ...v, regularModuleId: value }))
                     }
                     onSelectEnglishModule={(value) =>
-                        setBatchState((v) => ({
-                            ...v,
-                            englishModuleId: value,
-                        }))
+                        setBatchState((v) => ({ ...v, englishModuleId: value }))
                     }
                     regularDataset={batchComparisonData?.regular ?? null}
                     englishDataset={batchComparisonData?.english ?? null}
@@ -767,16 +773,10 @@ export default function SoalInputEssay({
             )}
 
             {deleteCandidate && (
-                <ModalOverlay
-                    onClose={handleCancelDelete}
-                    className="depth-modal-overlay z-[70]"
-                >
+                <ModalOverlay onClose={handleCancelDelete} className="depth-modal-overlay z-[70]">
                     <div className="depth-modal-container max-w-sm space-y-4 text-center">
                         <div className="depth-modal-header justify-center">
-                            <h3 className="depth-modal-title text-center">
-                                Hapus Soal
-                            </h3>
-
+                            <h3 className="depth-modal-title text-center">Hapus Soal</h3>
                             <ModalCloseButton
                                 onClick={handleCancelDelete}
                                 ariaLabel="Tutup konfirmasi hapus soal"
@@ -807,9 +807,7 @@ export default function SoalInputEssay({
                                 disabled={deleteSoalMutation.isPending}
                                 className="rounded-depth-md border border-red-500/60 bg-red-500/15 px-5 py-2 text-sm font-semibold text-red-400 shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md disabled:opacity-60"
                             >
-                                {deleteSoalMutation.isPending
-                                    ? "Menghapus..."
-                                    : "Hapus"}
+                                {deleteSoalMutation.isPending ? "Menghapus..." : "Hapus"}
                             </button>
                         </div>
                     </div>
