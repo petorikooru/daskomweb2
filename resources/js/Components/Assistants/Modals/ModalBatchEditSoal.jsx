@@ -193,10 +193,6 @@ function QuestionCard({
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">
                             Preview
                         </span>
-
-                        <span className="text-[10px] text-emerald-500">
-                            ● Live
-                        </span>
                     </div>
 
                     <div className="min-h-[150px] max-h-[350px] overflow-auto rounded-depth-md border border-depth bg-depth-interactive p-3 shadow-depth-inset">
