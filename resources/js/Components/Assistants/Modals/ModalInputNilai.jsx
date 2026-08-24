@@ -77,7 +77,7 @@ const normalize = (type, item, index) => {
     const pg = type === "ta" || type === "tk";
 
     return {
-        soalId: item.soal_id ?? index,
+        soalId: item.soal_id ?? item.soal_id ?? index,
         question: item.soal_text ?? item.pertanyaan ?? "Soal tidak tersedia",
         answer: pg
             ? null
@@ -142,17 +142,27 @@ async function fetchAutoScore(type, praktikanId, modulId) {
     );
 
     const items = Array.isArray(data?.[key]) ? data[key] : [];
-    if (!items.length) return { score: 0, hasAnswers: false };
 
-    const correct = items.filter(
+    if (!items.length) return { score: 0, hasAnswers: false, answered: 0, total: 0 };
+
+    const answered = items.filter(
         (x) =>
-            x.selected_opsi_id &&
-            x.selected_opsi_id === x.opsi_benar_id,
+            x.selected_opsi_id !== null &&
+            x.selected_opsi_id !== undefined &&
+            x.selected_opsi_id !== "",
+    );
+
+    const correct = answered.filter(
+        (x) =>
+            String(x.selected_opsi_id) ===
+            String(x.opsi_benar_id),
     ).length;
 
     return {
         score: Math.round((correct / items.length) * 10000) / 100,
-        hasAnswers: true,
+        hasAnswers: answered.length > 0,
+        answered: answered.length,
+        total: items.length,
     };
 }
 
@@ -412,6 +422,9 @@ export default function ModalInputNilai({
             .finally(() => setIsSaving(false));
     };
 
+    const currentAutoScore =
+        activeTab === "ta" ? taScore : activeTab === "tk" ? tkScore : null;
+
     return (
         <ModalOverlay
             onClose={onClose}
@@ -579,6 +592,9 @@ export default function ModalInputNilai({
                                         const hasAnswer =
                                             answer.trim() &&
                                             answer.trim() !== "-";
+                                        const isUnanswered =
+                                            hasOptions &&
+                                            !item.selectedOptionId;
 
                                         return (
                                             <article
@@ -587,7 +603,15 @@ export default function ModalInputNilai({
                                                 className="rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-sm"
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <span className="flex h-7 min-w-7 items-center justify-center rounded-depth-full bg-[var(--depth-color-primary)] text-xs font-bold text-white">
+                                                    <span
+                                                        className={`flex h-7 min-w-7 items-center justify-center rounded-depth-full text-xs font-bold text-white ${
+                                                            isUnanswered
+                                                                ? "bg-amber-500"
+                                                                : String(item.selectedOptionId) !== String(item.correctOptionId)
+                                                                    ? "bg-red-500"
+                                                                    : "bg-[var(--depth-color-primary)]"
+                                                        }`}
+                                                    >
                                                         {index + 1}
                                                     </span>
 
@@ -596,6 +620,22 @@ export default function ModalInputNilai({
                                                             content={item.question}
                                                             className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                                                         />
+
+                                                        {isUnanswered && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-400">
+                                                                Tidak Dijawab
+                                                            </div>
+                                                        )}
+                                                        {String(item.selectedOptionId) !== String(item.correctOptionId) && !isUnanswered && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-500">
+                                                                Jawaban Salah
+                                                            </div>
+                                                        )}
+                                                        {String(item.selectedOptionId) === String(item.correctOptionId) && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-[#4c7a4c]/40 bg-[var(--depth-color-primary)]/10 px-2.5 py-1 text-xs font-semibold bg-[var(--depth-color-primary)]">
+                                                                Jawaban Benar
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -678,17 +718,13 @@ export default function ModalInputNilai({
                                                                     item.attachmentUrl,
                                                                 ) ? (
                                                                     <img
-                                                                        src={
-                                                                            item.attachmentUrl
-                                                                        }
+                                                                        src={item.attachmentUrl}
                                                                         alt="Lampiran jawaban"
                                                                         className="max-h-72 w-full rounded-depth-md object-contain"
                                                                     />
                                                                 ) : (
                                                                     <a
-                                                                        href={
-                                                                            item.attachmentUrl
-                                                                        }
+                                                                        href={item.attachmentUrl}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="font-semibold text-[var(--depth-color-primary)] hover:underline"
