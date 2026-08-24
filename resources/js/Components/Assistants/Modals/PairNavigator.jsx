@@ -56,7 +56,7 @@ export default function PairNavigator({ count, active, onChange }) {
                 disabled={active === 0}
                 className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold text-depth-primary transition hover:shadow-depth-md disabled:cursor-not-allowed disabled:opacity-40"
             >
-                ← <span className="hidden sm:inline">Previous</span>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /> </svg>
             </button>
 
             <div
@@ -100,7 +100,7 @@ export default function PairNavigator({ count, active, onChange }) {
                 disabled={active >= count - 1}
                 className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold text-depth-primary transition hover:shadow-depth-md disabled:cursor-not-allowed disabled:opacity-40"
             >
-                <span className="hidden sm:inline">Next</span> →
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /> </svg>
             </button>
         </div>
     );
