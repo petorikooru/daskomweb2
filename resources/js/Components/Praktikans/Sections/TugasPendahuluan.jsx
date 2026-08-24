@@ -34,8 +34,158 @@ export default function TugasPendahuluan({
     const handleInputChange = (index, value) => {
         setActive(index);
         const updated = [...answers];
+
         updated[index] = value;
+
         setAnswers(updated);
+    };
+
+    const triggerFileInput = (index) => {
+        const input = document.getElementById(
+            `tp-file-upload-${index}`
+        );
+
+        if (input) {
+            input.click();
+        }
+    };
+
+    const handleFileUpload = async (index, file) => {
+        if (!file) {
+            return;
+        }
+
+        // Same 10MB limit as Journal/FITB
+        if (file.size > 10485760) {
+            alert("File size must be less than 10MB");
+            return;
+        }
+
+        // Images only
+        if (!file.type.startsWith("image/")) {
+            alert("Please upload an image file");
+            return;
+        }
+
+        setUploadingIndexes((previous) => ({
+            ...previous,
+            [index]: true,
+        }));
+
+        setUploadProgress((previous) => ({
+            ...previous,
+            [index]: 0,
+        }));
+
+        try {
+            /*
+             * Local preview while upload is happening.
+             */
+            const previewUrl =
+                URL.createObjectURL(file);
+
+            setPreviews((previous) => ({
+                ...previous,
+                [index]: previewUrl,
+            }));
+
+            /*
+             * Same ImageKit hook used by Journal/FITB.
+             *
+             * Only change is the folder:
+             * daskom/jawaban-tp
+             */
+            const uploadResult = await upload(
+                file,
+                "daskom/jawaban-tp",
+                null,
+                true
+            );
+
+            /*
+             * Use the exact same answer format
+             * as Journal/FITB.
+             */
+            const updated = [...answers];
+
+            updated[index] = {
+                type: "file",
+                url: uploadResult.url,
+                fileId: uploadResult.fileId,
+                filePath: uploadResult.filePath,
+            };
+
+            setAnswers(updated);
+        } catch (error) {
+            console.error(
+                "TP upload error:",
+                error
+            );
+
+            alert(
+                "Failed to upload file. Please try again."
+            );
+
+            setPreviews((previous) => {
+                const next = {
+                    ...previous,
+                };
+
+                if (next[index]) {
+                    URL.revokeObjectURL(
+                        next[index]
+                    );
+
+                    delete next[index];
+                }
+
+                return next;
+            });
+        } finally {
+            setUploadingIndexes((previous) => {
+                const next = {
+                    ...previous,
+                };
+
+                delete next[index];
+
+                return next;
+            });
+
+            setUploadProgress((previous) => {
+                const next = {
+                    ...previous,
+                };
+
+                delete next[index];
+
+                return next;
+            });
+        }
+    };
+
+    const handleDeleteFile = (index) => {
+        const updated = [...answers];
+
+        updated[index] = "";
+
+        setAnswers(updated);
+
+        setPreviews((previous) => {
+            const next = {
+                ...previous,
+            };
+
+            if (next[index]) {
+                URL.revokeObjectURL(
+                    next[index]
+                );
+
+                delete next[index];
+            }
+
+            return next;
+        });
     };
 
     const triggerFileInput = (index) => {

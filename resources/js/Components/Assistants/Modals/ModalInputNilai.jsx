@@ -72,7 +72,8 @@ const parseAttachment = (entry) => {
 };
 
 const normalize = (type, item, index) => {
-    const attachment = type === "fitb" ? parseAttachment(item) : null;
+    const supportsAttachment = ["tp", "jurnal", "fitb"].includes(type);
+    const attachment = supportsAttachment ? parseAttachment(item) : null;
     const pg = type === "ta" || type === "tk";
 
     return {
