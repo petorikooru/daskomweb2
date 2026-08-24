@@ -4,7 +4,6 @@ import { Image } from "@imagekit/react";
 import QuestionCommentInput from "./QuestionCommentInput";
 import MarkdownRenderer from "../../MarkdownRenderer";
 import { useImageKitUpload } from "@/hooks/useImageKitUpload";
-
 import QuestionNavigator from "@/Components/Praktikans/Common/QuestionNavigator";
 import useQuestionNavigation from "@/hooks/praktikum/useQuestionNavigation";
 
@@ -24,6 +23,7 @@ export default function TugasPendahuluan({
 }) {
     const [uploadingIndexes, setUploadingIndexes] = useState({});
     const [previews, setPreviews] = useState({});
+
     const { upload } = useImageKitUpload();
     const { panelRef, active, setActive, goTo } = useQuestionNavigation(questions);
 
@@ -33,159 +33,11 @@ export default function TugasPendahuluan({
 
     const handleInputChange = (index, value) => {
         setActive(index);
-        const updated = [...answers];
 
+        const updated = [...answers];
         updated[index] = value;
 
         setAnswers(updated);
-    };
-
-    const triggerFileInput = (index) => {
-        const input = document.getElementById(
-            `tp-file-upload-${index}`
-        );
-
-        if (input) {
-            input.click();
-        }
-    };
-
-    const handleFileUpload = async (index, file) => {
-        if (!file) {
-            return;
-        }
-
-        // Same 10MB limit as Journal/FITB
-        if (file.size > 10485760) {
-            alert("File size must be less than 10MB");
-            return;
-        }
-
-        // Images only
-        if (!file.type.startsWith("image/")) {
-            alert("Please upload an image file");
-            return;
-        }
-
-        setUploadingIndexes((previous) => ({
-            ...previous,
-            [index]: true,
-        }));
-
-        setUploadProgress((previous) => ({
-            ...previous,
-            [index]: 0,
-        }));
-
-        try {
-            /*
-             * Local preview while upload is happening.
-             */
-            const previewUrl =
-                URL.createObjectURL(file);
-
-            setPreviews((previous) => ({
-                ...previous,
-                [index]: previewUrl,
-            }));
-
-            /*
-             * Same ImageKit hook used by Journal/FITB.
-             *
-             * Only change is the folder:
-             * daskom/jawaban-tp
-             */
-            const uploadResult = await upload(
-                file,
-                "daskom/jawaban-tp",
-                null,
-                true
-            );
-
-            /*
-             * Use the exact same answer format
-             * as Journal/FITB.
-             */
-            const updated = [...answers];
-
-            updated[index] = {
-                type: "file",
-                url: uploadResult.url,
-                fileId: uploadResult.fileId,
-                filePath: uploadResult.filePath,
-            };
-
-            setAnswers(updated);
-        } catch (error) {
-            console.error(
-                "TP upload error:",
-                error
-            );
-
-            alert(
-                "Failed to upload file. Please try again."
-            );
-
-            setPreviews((previous) => {
-                const next = {
-                    ...previous,
-                };
-
-                if (next[index]) {
-                    URL.revokeObjectURL(
-                        next[index]
-                    );
-
-                    delete next[index];
-                }
-
-                return next;
-            });
-        } finally {
-            setUploadingIndexes((previous) => {
-                const next = {
-                    ...previous,
-                };
-
-                delete next[index];
-
-                return next;
-            });
-
-            setUploadProgress((previous) => {
-                const next = {
-                    ...previous,
-                };
-
-                delete next[index];
-
-                return next;
-            });
-        }
-    };
-
-    const handleDeleteFile = (index) => {
-        const updated = [...answers];
-
-        updated[index] = "";
-
-        setAnswers(updated);
-
-        setPreviews((previous) => {
-            const next = {
-                ...previous,
-            };
-
-            if (next[index]) {
-                URL.revokeObjectURL(
-                    next[index]
-                );
-
-                delete next[index];
-            }
-
-            return next;
-        });
     };
 
     const triggerFileInput = (index) => {
@@ -194,27 +46,35 @@ export default function TugasPendahuluan({
     };
 
     const handleFileUpload = async (index, file) => {
-        if (!file) return;
+        if (!file) {
+            return;
+        }
+
         if (file.size > 10485760) {
             alert("File size must be less than 10MB");
             return;
         }
+
         if (!file.type.startsWith("image/")) {
             alert("Please upload an image file");
             return;
         }
 
         setActive(index);
-        setUploadingIndexes((prev) => ({ ...prev, [index]: true }));
+        setUploadingIndexes((previous) => ({ ...previous, [index]: true }));
 
         const oldPreview = previews[index];
-        if (oldPreview) URL.revokeObjectURL(oldPreview);
+
+        if (oldPreview) {
+            URL.revokeObjectURL(oldPreview);
+        }
 
         const previewUrl = URL.createObjectURL(file);
-        setPreviews((prev) => ({ ...prev, [index]: previewUrl }));
+        setPreviews((previous) => ({ ...previous, [index]: previewUrl }));
 
         try {
             const result = await upload(file, "daskom/jawaban-tp", null, true);
+
             const updated = [...answers];
             updated[index] = {
                 type: "file",
@@ -222,19 +82,21 @@ export default function TugasPendahuluan({
                 fileId: result.fileId,
                 filePath: result.filePath,
             };
+
             setAnswers(updated);
         } catch (error) {
             console.error("TP upload error:", error);
             alert("Failed to upload file. Please try again.");
+
             URL.revokeObjectURL(previewUrl);
-            setPreviews((prev) => {
-                const next = { ...prev };
+            setPreviews((previous) => {
+                const next = { ...previous };
                 delete next[index];
                 return next;
             });
         } finally {
-            setUploadingIndexes((prev) => {
-                const next = { ...prev };
+            setUploadingIndexes((previous) => {
+                const next = { ...previous };
                 delete next[index];
                 return next;
             });
@@ -243,44 +105,59 @@ export default function TugasPendahuluan({
 
     const handleDeleteFile = (index) => {
         setActive(index);
+
         const updated = [...answers];
         updated[index] = "";
         setAnswers(updated);
-        setPreviews((prev) => {
-            const next = { ...prev };
+
+        setPreviews((previous) => {
+            const next = { ...previous };
+
             if (next[index]) {
                 URL.revokeObjectURL(next[index]);
                 delete next[index];
             }
+
             return next;
         });
     };
 
     const handleSubmit = () => onSubmitTask?.("TugasPendahuluan", answers);
 
-    if (isLoading) return (
-        <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
-            <p className="text-depth-secondary">Memuat soal tugas pendahuluan...</p>
-        </div>
-    );
+    if (isLoading) {
+        return (
+            <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
+                <p className="text-depth-secondary">Memuat soal tugas pendahuluan...</p>
+            </div>
+        );
+    }
 
-    if (errorMessage) return (
-        <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
-            <p className="font-semibold text-red-400">{errorMessage}</p>
-        </div>
-    );
+    if (errorMessage) {
+        return (
+            <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
+                <p className="font-semibold text-red-400">{errorMessage}</p>
+            </div>
+        );
+    }
 
-    if (!Array.isArray(questions) || !questions.length) return (
-        <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
-            <p className="text-depth-secondary">Belum ada soal tugas pendahuluan untuk modul ini.</p>
-        </div>
-    );
+    if (!Array.isArray(questions) || !questions.length) {
+        return (
+            <div className="mx-auto mt-[1vh] max-w-4xl p-5 text-center">
+                <p className="text-depth-secondary">Belum ada soal tugas pendahuluan untuk modul ini.</p>
+            </div>
+        );
+    }
 
     return (
         <>
-            <div className="mx-auto mt-2 flex max-h-[70vh] w-full flex-col gap-4 overflow-hidden rounded-depth-lg border border-depth bg-depth-card/70 p-4 shadow-depth-lg">
+            <div className="mx-auto mt-2 flex max-h-[80vh] w-full flex-col gap-4 overflow-hidden rounded-depth-lg border border-depth bg-depth-card/70 p-4 shadow-depth-lg">
                 <div ref={panelRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto rounded-depth-lg bg-depth-interactive/40 p-3.5" style={{ overflowAnchor: "none" }}>
-                    <QuestionNavigator questions={questions} answers={answers} active={active} onChange={goTo} />
+                    <QuestionNavigator
+                        questions={questions}
+                        answers={answers}
+                        active={active}
+                        onChange={goTo}
+                    />
 
                     {questions.map((question, index) => {
                         const isFileUploadEnabled = Boolean(question.enable_file_upload);
@@ -315,10 +192,7 @@ export default function TugasPendahuluan({
                                     <div className="space-y-3">
                                         {!isFileAnswer && !preview ? (
                                             <div>
-                                                <label
-                                                    htmlFor={`tp-file-upload-${index}`}
-                                                    className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-depth-md border-2 border-dashed border-depth bg-depth-interactive transition hover:bg-depth-hover"
-                                                >
+                                                <label htmlFor={`tp-file-upload-${index}`} className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-depth-md border-2 border-dashed border-depth bg-depth-interactive transition hover:bg-depth-hover">
                                                     <div className="flex flex-col items-center justify-center pb-6 pt-5">
                                                         <svg className="mb-3 h-10 w-10 text-depth-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -327,8 +201,11 @@ export default function TugasPendahuluan({
                                                         <p className="text-xs text-depth-secondary">PNG, JPG, GIF up to 10MB</p>
                                                     </div>
                                                 </label>
+
                                                 <div className="mt-3 text-right">
-                                                    <button type="button" onClick={() => triggerFileInput(index)} className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md">Pilih File</button>
+                                                    <button type="button" onClick={() => triggerFileInput(index)} className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md">
+                                                        Pilih File
+                                                    </button>
                                                 </div>
                                             </div>
                                         ) : (
@@ -359,7 +236,9 @@ export default function TugasPendahuluan({
                                                         </button>
 
                                                         <div className="mt-3 text-right">
-                                                            <button type="button" onClick={() => triggerFileInput(index)} className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md">Ganti File</button>
+                                                            <button type="button" onClick={() => triggerFileInput(index)} className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md">
+                                                                Ganti File
+                                                            </button>
                                                         </div>
                                                     </>
                                                 )}
@@ -381,7 +260,7 @@ export default function TugasPendahuluan({
                                     </div>
                                 ) : (
                                     <textarea
-                                        className="min-h-[15vh] w-full resize-y rounded-depth-md border border-depth bg-depth-interactive p-3 text-sm text-depth-primary placeholder:text-depth-secondary shadow-depth-inset transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]"
+                                        className="min-h-[20vh] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 font-mono text-sm text-depth-primary placeholder:text-depth-secondary shadow-depth-inset transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]"
                                         placeholder="Tulis jawabanmu di sini..."
                                         value={typeof currentAnswer === "string" ? currentAnswer : ""}
                                         onChange={(event) => handleInputChange(index, event.target.value)}
