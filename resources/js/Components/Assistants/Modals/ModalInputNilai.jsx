@@ -8,6 +8,7 @@ import { store as storeNilai, update as updateNilai } from "@/lib/routes/nilai";
 import { ModalOverlay } from "@/Components/Common/ModalPortal";
 import ModalCloseButton from "@/Components/Common/ModalCloseButton";
 import MarkdownRenderer from "../../MarkdownRenderer";
+import PairNavigator from "./PairNavigator.jsx"
 
 const SCORES = [
     ["tp", "TP"], ["ta", "TA"], ["d1", "D1"], ["d2", "D2"],
@@ -164,53 +165,6 @@ async function fetchAutoScore(type, praktikanId, modulId) {
         answered: answered.length,
         total: items.length,
     };
-}
-
-function QuestionNav({ count, active, onChange }) {
-    if (!count) return null;
-
-    return (
-        <div className="flex items-center gap-2 rounded-depth-md border border-depth bg-depth-card p-2 shadow-depth-md">
-            <button
-                type="button"
-                disabled={!active}
-                onClick={() => onChange(active - 1)}
-                className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold disabled:opacity-40"
-            >
-                ← <span className="hidden sm:inline">Previous</span>
-            </button>
-
-            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-                {Array.from({ length: count }, (_, i) => (
-                    <button
-                        key={i}
-                        type="button"
-                        onClick={() => onChange(i)}
-                        className={`h-8 min-w-8 shrink-0 rounded-depth-md border px-2 text-xs font-semibold ${
-                            active === i
-                                ? "border-[var(--depth-color-primary)] bg-[var(--depth-color-primary)] text-white"
-                                : "border-depth bg-depth-interactive text-depth-secondary"
-                        }`}
-                    >
-                        {i + 1}
-                    </button>
-                ))}
-            </div>
-
-            <span className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold">
-                {active + 1} / {count}
-            </span>
-
-            <button
-                type="button"
-                disabled={active >= count - 1}
-                onClick={() => onChange(active + 1)}
-                className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold disabled:opacity-40"
-            >
-                <span className="hidden sm:inline">Next</span> →
-            </button>
-        </div>
-    );
 }
 
 export default function ModalInputNilai({
@@ -576,7 +530,7 @@ export default function ModalInputNilai({
                                 <div className="space-y-4">
                                     {/* Sticky question navbar */}
                                     <div className="sticky top-0 z-20 pb-2">
-                                        <QuestionNav
+                                        <PairNavigator
                                             count={questions.length}
                                             active={activeQuestion}
                                             onChange={goToQuestion}
