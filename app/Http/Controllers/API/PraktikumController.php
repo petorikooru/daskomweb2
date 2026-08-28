@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
 
 class PraktikumController extends Controller
 {
-    private const PHASE_SEQUENCE = [
+    private const PHASES = [
         'preparation',
         'ta',
         'fitb_jurnal',
@@ -28,16 +28,10 @@ class PraktikumController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $praktikums = Praktikum::with(['modul', 'kelas', 'pj'])
-                ->when($request->filled('kelas_id'), function ($query) use ($request) {
-                    $query->where('kelas_id', $request->input('kelas_id'));
-                })
-                ->when($request->filled('modul_id'), function ($query) use ($request) {
-                    $query->where('modul_id', $request->input('modul_id'));
-                })
-                ->when($request->filled('dk'), function ($query) use ($request) {
-                    $query->where('dk', $request->input('dk'));
-                })
+            $data = Praktikum::with(['modul', 'kelas', 'pj'])
+                ->when($request->filled('kelas_id'), fn ($q) => $q->where('kelas_id', $request->kelas_id))
+                ->when($request->filled('modul_id'), fn ($q) => $q->where('modul_id', $request->modul_id))
+                ->when($request->filled('dk'), fn ($q) => $q->where('dk', $request->dk))
                 ->orderBy('kelas_id')
                 ->orderBy('dk')
                 ->orderBy('modul_id')
@@ -46,25 +40,21 @@ class PraktikumController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Praktikum retrieved successfully.',
-                'data' => $praktikums,
-                'phases' => self::PHASE_SEQUENCE,
+                'data' => $data,
+                'phases' => self::PHASES,
             ]);
-        } catch (\Throwable $th) {
-            return $this->respondWithServerError($th);
+        } catch (\Throwable $e) {
+            return $this->serverError($e);
         }
     }
 
     public function show(Request $request, int $kelasId): JsonResponse
     {
         try {
-            $praktikums = Praktikum::with(['modul', 'kelas', 'pj'])
+            $data = Praktikum::with(['modul', 'kelas', 'pj'])
                 ->where('kelas_id', $kelasId)
-                ->when($request->filled('modul_id'), function ($query) use ($request) {
-                    $query->where('modul_id', $request->input('modul_id'));
-                })
-                ->when($request->filled('dk'), function ($query) use ($request) {
-                    $query->where('dk', $request->input('dk'));
-                })
+                ->when($request->filled('modul_id'), fn ($q) => $q->where('modul_id', $request->modul_id))
+                ->when($request->filled('dk'), fn ($q) => $q->where('dk', $request->dk))
                 ->orderBy('dk')
                 ->orderBy('modul_id')
                 ->get();
@@ -72,36 +62,17 @@ class PraktikumController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Praktikum retrieved successfully.',
-                'data' => $praktikums,
-                'phases' => self::PHASE_SEQUENCE,
+                'data' => $data,
+                'phases' => self::PHASES,
             ]);
-        } catch (\Throwable $th) {
-            return $this->respondWithServerError($th);
+        } catch (\Throwable $e) {
+            return $this->serverError($e);
         }
     }
 
-    // public function active(): JsonResponse
-    // {
-    //     try {
-    //         $praktikums = Praktikum::with(['modul', 'kelas', 'pj'])
-    //             ->whereIn('status', ['running', 'paused'])
-    //             ->orderBy('kelas_id')
-    //             ->orderBy('dk')
-    //             ->get();
-
-    //         return response()->json([
-    //             'status' => 'success',
-    //             'data' => $praktikums,
-    //             'phases' => self::PHASE_SEQUENCE,
-    //         ]);
-    //     } catch (\Throwable $th) {
-    //         return $this->respondWithServerError($th);
-    //     }
-    // }
-
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'kelas_id' => 'required|exists:kelas,id',
             'modul_id' => 'required|exists:moduls,id',
             'dk' => 'required|string|in:DK1,DK2',
@@ -109,14 +80,13 @@ class PraktikumController extends Controller
 
         $praktikum = Praktikum::firstOrCreate(
             [
-                'kelas_id' => $validated['kelas_id'],
-                'modul_id' => $validated['modul_id'],
-                'dk' => $validated['dk'],
+                'kelas_id' => $data['kelas_id'],
+                'modul_id' => $data['modul_id'],
+                'dk' => $data['dk'],
             ],
             [
-                'dk' => $validated['dk'],
                 'status' => 'idle',
-                'current_phase' => self::PHASE_SEQUENCE[0],
+                'current_phase' => self::PHASES[0],
                 'phase_elapsed_seconds' => 0,
                 'phase_started_at' => null,
                 'isActive' => false,
@@ -141,14 +111,15 @@ class PraktikumController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'action' => 'required|string|in:start,pause,resume,next,exit,report',
             'phase' => 'nullable|string',
             'report_notes' => 'required_if:action,report|string|min:3|max:65535',
         ]);
 
-        $phase = $validated['phase'] ?? null;
-        if ($phase !== null && ! in_array($phase, self::PHASE_SEQUENCE, true)) {
+        $phase = $data['phase'] ?? null;
+
+        if ($phase !== null && ! in_array($phase, self::PHASES, true)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Phase is not valid.',
@@ -165,48 +136,39 @@ class PraktikumController extends Controller
         }
 
         $now = Carbon::now();
-
-        $pjId = null;
-        if ($validated['action'] === 'report') {
-            $pjId = optional($request->user('asisten'))->id ?? optional(Auth::user())->id ?? null;
-        }
+        $pjId = $data['action'] === 'report'
+            ? optional($request->user('asisten'))->id ?? optional(Auth::user())->id
+            : null;
 
         try {
-            switch ($validated['action']) {
-                case 'start':
-                    $this->handleStart($praktikum, $phase ?? self::PHASE_SEQUENCE[0], $now);
-                    break;
-                case 'pause':
-                    $this->handlePause($praktikum, $now);
-                    break;
-                case 'resume':
-                    $this->handleResume($praktikum, $now);
-                    break;
-                case 'next':
-                    $this->handleNext($praktikum, $phase, $now);
-                    break;
-                case 'exit':
-                    $this->handleExit($praktikum, $now);
-                    break;
-                case 'report':
-                    $this->handleReport($praktikum, $validated['report_notes'], $now, $pjId);
-                    break;
-            }
-        } catch (\InvalidArgumentException $exception) {
+            match ($data['action']) {
+                'start' => $this->start($praktikum, $phase ?? self::PHASES[0], $now),
+                'pause' => $this->pause($praktikum, $now),
+                'resume' => $this->resume($praktikum, $now),
+                'next' => $this->next($praktikum, $phase, $now),
+                'exit' => $this->exit($praktikum, $now),
+                'report' => $this->report($praktikum, $data['report_notes'], $now, $pjId),
+            };
+        } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $exception->getMessage(),
+                'message' => $e->getMessage(),
             ], 422);
-        } catch (\Throwable $th) {
-            return $this->respondWithServerError($th);
+        } catch (\Throwable $e) {
+            return $this->serverError($e);
         }
 
         $praktikum = $praktikum->fresh(['modul', 'kelas', 'pj']);
+
         broadcast(new PraktikumStatusUpdated($praktikum));
 
-        $progressService = app(QuestionProgressService::class);
-        $progressPayload = $progressService->buildForPraktikum($praktikum);
-        broadcast(new PraktikumProgressUpdated($praktikum->id, $progressPayload));
+        $progress = app(QuestionProgressService::class)
+            ->buildForPraktikum($praktikum);
+
+        broadcast(new PraktikumProgressUpdated(
+            $praktikum->id,
+            $progress
+        ));
 
         broadcast(new ActivePraktikumBroadcast);
 
@@ -214,60 +176,74 @@ class PraktikumController extends Controller
             'status' => 'success',
             'message' => 'Praktikum updated successfully.',
             'data' => $praktikum,
-            'phases' => self::PHASE_SEQUENCE,
+            'phases' => self::PHASES,
         ]);
     }
 
-    private function handleStart(Praktikum $praktikum, string $phase, Carbon $now): void
-    {
-        // Check if there's already a running praktikum for the same kelas
-        $runningPraktikum = Praktikum::where('kelas_id', $praktikum->kelas_id)
+    private function start(
+        Praktikum $praktikum,
+        string $phase,
+        Carbon $now
+    ): void {
+        $running = Praktikum::where('kelas_id', $praktikum->kelas_id)
             ->where('dk', $praktikum->dk)
             ->where('id', '!=', $praktikum->id)
             ->whereIn('status', ['running', 'paused'])
             ->first();
 
-        if ($runningPraktikum) {
+        if ($running) {
             throw new \InvalidArgumentException(
                 'Tidak dapat memulai praktikum. Terdapat praktikum lain yang sedang berjalan untuk kelas ini.'
             );
         }
 
-        $praktikum->isActive = true;
-        $praktikum->status = 'running';
-        $praktikum->current_phase = $phase;
-        $praktikum->started_at = $now;
-        $praktikum->ended_at = null;
-        $praktikum->report_notes = null;
-        $praktikum->report_submitted_at = null;
-        $praktikum->pj_id = optional(Auth::user())->id;
-        $this->resetPhaseTiming($praktikum, $now);
+        $praktikum->fill([
+            'isActive' => true,
+            'status' => 'running',
+            'current_phase' => $phase,
+            'started_at' => $now,
+            'ended_at' => null,
+            'report_notes' => null,
+            'report_submitted_at' => null,
+            'pj_id' => optional(Auth::user())->id,
+        ]);
+
+        $this->resetTiming($praktikum, $now);
         $praktikum->save();
     }
 
-    private function handlePause(Praktikum $praktikum, Carbon $now): void
+    private function pause(Praktikum $praktikum, Carbon $now): void
     {
         if ($praktikum->status !== 'running') {
-            throw new \InvalidArgumentException('Praktikum is not running.');
+            throw new \InvalidArgumentException(
+                'Praktikum is not running.'
+            );
         }
 
         $praktikum->status = 'paused';
         $praktikum->isActive = false;
         $praktikum->ended_at = $now;
-        $this->freezePhaseTiming($praktikum, $now);
+
+        $this->freezeTiming($praktikum, $now);
         $praktikum->save();
     }
 
-    private function handleResume(Praktikum $praktikum, Carbon $now): void
+    private function resume(Praktikum $praktikum, Carbon $now): void
     {
         if ($praktikum->status !== 'paused') {
-            throw new \InvalidArgumentException('Praktikum is not paused.');
+            throw new \InvalidArgumentException(
+                'Praktikum is not paused.'
+            );
         }
 
         $elapsed = 0;
+
         if ($praktikum->started_at) {
             $reference = $praktikum->ended_at ?? $now;
-            $elapsed = max(0, $praktikum->started_at->diffInSeconds($reference));
+            $elapsed = max(
+                0,
+                $praktikum->started_at->diffInSeconds($reference)
+            );
         }
 
         $praktikum->status = 'running';
@@ -278,91 +254,120 @@ class PraktikumController extends Controller
         $praktikum->save();
     }
 
-    private function handleNext(Praktikum $praktikum, ?string $phase, Carbon $now): void
-    {
-        // If phase is explicitly provided, use it (for frontend control)
+    private function next(
+        Praktikum $praktikum,
+        ?string $phase,
+        Carbon $now
+    ): void {
         if ($phase !== null) {
-            $nextIndex = array_search($phase, self::PHASE_SEQUENCE, true);
+            $index = array_search($phase, self::PHASES, true);
 
-            if ($nextIndex === false) {
-                throw new \InvalidArgumentException('Invalid phase provided.');
+            if ($index === false) {
+                throw new \InvalidArgumentException(
+                    'Invalid phase provided.'
+                );
             }
 
-            $isLastPhase = $nextIndex === count(self::PHASE_SEQUENCE) - 1;
-
-            if ($isLastPhase) {
+            if ($index === count(self::PHASES) - 1) {
                 $praktikum->status = 'completed';
                 $praktikum->isActive = false;
+                $praktikum->current_phase = $phase;
                 $praktikum->ended_at = $now;
-                $praktikum->current_phase = $phase;
-                $this->freezePhaseTiming($praktikum, $now);
+                $this->freezeTiming($praktikum, $now);
             } else {
-                $praktikum->current_phase = $phase;
-                $praktikum->status = 'running';
-                $praktikum->isActive = true;
-                if ($praktikum->started_at) {
-                    $reference = $praktikum->ended_at ?? $now;
-                    $elapsed = max(0, $praktikum->started_at->diffInSeconds($reference));
-                    $praktikum->started_at = $now->copy()->subSeconds($elapsed);
-                }
-                $praktikum->ended_at = null;
-                $this->resetPhaseTiming($praktikum, $now);
+                $this->moveToPhase(
+                    $praktikum,
+                    $phase,
+                    $now
+                );
             }
+
+            $praktikum->save();
+
+            return;
+        }
+
+        $current = $praktikum->current_phase ?? self::PHASES[0];
+        $index = array_search($current, self::PHASES, true);
+
+        if ($index === false) {
+            throw new \InvalidArgumentException(
+                'Current phase is invalid.'
+            );
+        }
+
+        if ($index === count(self::PHASES) - 1) {
+            $praktikum->status = 'completed';
+            $praktikum->isActive = false;
+            $praktikum->ended_at = $now;
+
+            $this->freezeTiming($praktikum, $now);
         } else {
-            // Fallback to auto-calculating next phase
-            $currentPhase = $praktikum->current_phase ?? self::PHASE_SEQUENCE[0];
-            $currentIndex = array_search($currentPhase, self::PHASE_SEQUENCE, true);
-
-            if ($currentIndex === false) {
-                throw new \InvalidArgumentException('Current phase is invalid.');
-            }
-
-            $isLastPhase = $currentIndex === count(self::PHASE_SEQUENCE) - 1;
-
-            if ($isLastPhase) {
-                $praktikum->status = 'completed';
-                $praktikum->isActive = false;
-                $praktikum->ended_at = $now;
-                $this->freezePhaseTiming($praktikum, $now);
-            } else {
-                $praktikum->current_phase = self::PHASE_SEQUENCE[$currentIndex + 1];
-                $praktikum->status = 'running';
-                $praktikum->isActive = true;
-                if ($praktikum->started_at) {
-                    $reference = $praktikum->ended_at ?? $now;
-                    $elapsed = max(0, $praktikum->started_at->diffInSeconds($reference));
-                    $praktikum->started_at = $now->copy()->subSeconds($elapsed);
-                }
-                $praktikum->ended_at = null;
-                $this->resetPhaseTiming($praktikum, $now);
-            }
+            $this->moveToPhase(
+                $praktikum,
+                self::PHASES[$index + 1],
+                $now
+            );
         }
 
         $praktikum->save();
     }
 
-    private function handleExit(Praktikum $praktikum, Carbon $now): void
+    private function moveToPhase(
+        Praktikum $praktikum,
+        string $phase,
+        Carbon $now
+    ): void {
+        if ($praktikum->started_at) {
+            $reference = $praktikum->ended_at ?? $now;
+            $elapsed = max(
+                0,
+                $praktikum->started_at->diffInSeconds($reference)
+            );
+
+            $praktikum->started_at =
+                $now->copy()->subSeconds($elapsed);
+        }
+
+        $praktikum->current_phase = $phase;
+        $praktikum->status = 'running';
+        $praktikum->isActive = true;
+        $praktikum->ended_at = null;
+
+        $this->resetTiming($praktikum, $now);
+    }
+
+    private function exit(Praktikum $praktikum, Carbon $now): void
     {
         $praktikum->status = 'exited';
         $praktikum->isActive = false;
         $praktikum->ended_at = $now;
-        $this->freezePhaseTiming($praktikum, $now);
+
+        $this->freezeTiming($praktikum, $now);
         $praktikum->save();
     }
 
-    private function handleReport(Praktikum $praktikum, string $notes, Carbon $now, ?int $pjId): void
-    {
+    private function report(
+        Praktikum $praktikum,
+        string $notes,
+        Carbon $now,
+        ?int $pjId
+    ): void {
         if ($praktikum->status !== 'completed') {
-            throw new \InvalidArgumentException('Laporan hanya dapat diisi setelah praktikum selesai.');
+            throw new \InvalidArgumentException(
+                'Laporan hanya dapat diisi setelah praktikum selesai.'
+            );
         }
 
-        $trimmedNotes = trim($notes);
+        $notes = trim($notes);
 
-        if ($trimmedNotes === '') {
-            throw new \InvalidArgumentException('Isi laporan tidak boleh kosong.');
+        if ($notes === '') {
+            throw new \InvalidArgumentException(
+                'Isi laporan tidak boleh kosong.'
+            );
         }
 
-        $praktikum->report_notes = $trimmedNotes;
+        $praktikum->report_notes = $notes;
         $praktikum->report_submitted_at = $now;
         $praktikum->pj_id = $pjId;
         $praktikum->save();
@@ -380,94 +385,126 @@ class PraktikumController extends Controller
                 ], 401);
             }
 
-            $kelasId = $user->kelas_id;
-            $dk = $user->dk;
-
-            if (! $kelasId) {
+            if (! $user->kelas_id) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Praktikan does not have an assigned kelas.',
                 ], 400);
             }
 
-            if (! $dk) {
+            if (! $user->dk) {
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Praktikan belum memilih DK. Silakan pilih DK terlebih dahulu.',
                     'dk_required' => true,
                     'data' => null,
-                    'phases' => self::PHASE_SEQUENCE,
+                    'phases' => self::PHASES,
                     'feedback_pending' => false,
                     'feedback_modul_id' => null,
                     'feedback_asisten_id' => null,
-                ], 200);
+                ]);
             }
 
-            $activePraktikum = Praktikum::with(['modul', 'kelas', 'pj'])
-                ->where('kelas_id', $kelasId)
-                ->where('dk', $dk)
+            $active = Praktikum::with(['modul', 'kelas', 'pj'])
+                ->where('kelas_id', $user->kelas_id)
+                ->where('dk', $user->dk)
                 ->where('isActive', true)
                 ->whereIn('status', ['running', 'paused'])
                 ->first();
 
-            $latestCompletedPraktikum = Praktikum::query()
-                ->where('kelas_id', $kelasId)
-                ->where('dk', $dk)
+            $completed = Praktikum::with(['modul', 'kelas', 'pj'])
+                ->where('kelas_id', $user->kelas_id)
+                ->where('dk', $user->dk)
                 ->where('status', 'completed')
                 ->orderByDesc('ended_at')
                 ->orderByDesc('updated_at')
                 ->first();
 
             $feedbackPending = false;
-            $pendingModulId = null;
-            $pendingAsistenId = null;
+            $feedbackModulId = null;
+            $feedbackAsistenId = null;
 
-            if ($latestCompletedPraktikum) {
-                $hasSubmittedFeedback = LaporanPraktikan::query()
+            /*
+             * Feedback must belong to THIS run.
+             *
+             * Old feedback for the same practitioner/module must not
+             * suppress feedback after the prakticum is started again.
+             */
+            if ($completed) {
+                $feedbackQuery = LaporanPraktikan::query()
                     ->where('praktikan_id', $user->id)
-                    ->where('modul_id', $latestCompletedPraktikum->modul_id)
-                    ->exists();
+                    ->where('modul_id', $completed->modul_id);
 
-                $praktikumHasReport = trim((string) ($latestCompletedPraktikum->report_notes ?? '')) !== '';
+                if ($completed->started_at) {
+                    $feedbackQuery->where(
+                        'updated_at',
+                        '>=',
+                        $completed->started_at
+                    );
+                }
 
-                if (! $hasSubmittedFeedback && ! $praktikumHasReport) {
+                if (! $feedbackQuery->exists()) {
                     $feedbackPending = true;
-                    $pendingModulId = $latestCompletedPraktikum->modul_id;
-                    $pendingAsistenId = $latestCompletedPraktikum->pj_id;
+                    $feedbackModulId = $completed->modul_id;
+                    $feedbackAsistenId = $completed->pj_id;
                 }
             }
 
-            if ($activePraktikum) {
-                $activePraktikum->setAttribute(
+            /*
+             * Important for TK:
+             *
+             * entering feedback marks the prakticum completed and
+             * isActive=false. While feedback is still pending, return
+             * that completed praktikum as `data` so PraktikumPage can
+             * observe the TK -> feedback transition and show TK score.
+             */
+            $display = $active ??
+                ($feedbackPending ? $completed : null);
+
+            if ($display) {
+                $sameModule =
+                    $feedbackPending &&
+                    $feedbackModulId !== null &&
+                    (int) $display->modul_id ===
+                        (int) $feedbackModulId;
+
+                $display->setAttribute(
                     'feedback_pending',
-                    $feedbackPending
-                        && $pendingModulId !== null
-                        && $pendingModulId === $activePraktikum->modul_id
-                        && trim((string) ($activePraktikum->report_notes ?? '')) === ''
+                    $sameModule
                 );
-                $activePraktikum->setAttribute('feedback_modul_id', $pendingModulId);
-                $activePraktikum->setAttribute('feedback_asisten_id', $pendingAsistenId);
+
+                $display->setAttribute(
+                    'feedback_modul_id',
+                    $feedbackModulId
+                );
+
+                $display->setAttribute(
+                    'feedback_asisten_id',
+                    $feedbackAsistenId
+                );
             }
 
             return response()->json([
                 'status' => 'success',
-                'message' => $activePraktikum
+                'message' => $active
                     ? 'Active praktikum found.'
-                    : 'No active praktikum for this kelas.',
-                'data' => $activePraktikum,
-                'phases' => self::PHASE_SEQUENCE,
+                    : ($feedbackPending
+                        ? 'Praktikum completed. Feedback pending.'
+                        : 'No active praktikum for this kelas.'),
+                'data' => $display,
+                'phases' => self::PHASES,
                 'feedback_pending' => $feedbackPending,
-                'feedback_modul_id' => $pendingModulId,
-                'feedback_asisten_id' => $pendingAsistenId,
+                'feedback_modul_id' => $feedbackModulId,
+                'feedback_asisten_id' => $feedbackAsistenId,
             ]);
-        } catch (\Throwable $th) {
-            return $this->respondWithServerError($th);
+        } catch (\Throwable $e) {
+            return $this->serverError($e);
         }
     }
 
     public function storeDk(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'dk' => 'required|string|in:DK1,DK2',
         ]);
 
@@ -480,7 +517,7 @@ class PraktikumController extends Controller
             ], 401);
         }
 
-        $user->dk = $validated['dk'];
+        $user->dk = $data['dk'];
         $user->save();
 
         return response()->json([
@@ -493,14 +530,10 @@ class PraktikumController extends Controller
     public function history(Request $request): JsonResponse
     {
         try {
-            $praktikums = Praktikum::with(['modul', 'kelas', 'pj'])
+            $data = Praktikum::with(['modul', 'kelas', 'pj'])
                 ->whereNotNull('report_notes')
-                ->when($request->filled('kelas_id'), function ($query) use ($request) {
-                    $query->where('kelas_id', $request->input('kelas_id'));
-                })
-                ->when($request->filled('modul_id'), function ($query) use ($request) {
-                    $query->where('modul_id', $request->input('modul_id'));
-                })
+                ->when($request->filled('kelas_id'), fn ($q) => $q->where('kelas_id', $request->kelas_id))
+                ->when($request->filled('modul_id'), fn ($q) => $q->where('modul_id', $request->modul_id))
                 ->orderByDesc('report_submitted_at')
                 ->orderByDesc('updated_at')
                 ->get();
@@ -508,42 +541,58 @@ class PraktikumController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'History retrieved successfully.',
-                'data' => $praktikums,
+                'data' => $data,
             ]);
-        } catch (\Throwable $th) {
-            return $this->respondWithServerError($th);
+        } catch (\Throwable $e) {
+            return $this->serverError($e);
         }
     }
 
-    private function calculatePhaseElapsedSeconds(Praktikum $praktikum, Carbon $now): int
-    {
-        $baseSeconds = max(0, (int) ($praktikum->phase_elapsed_seconds ?? 0));
+    private function elapsed(
+        Praktikum $praktikum,
+        Carbon $now
+    ): int {
+        $seconds = max(
+            0,
+            (int) ($praktikum->phase_elapsed_seconds ?? 0)
+        );
 
         if ($praktikum->phase_started_at instanceof Carbon) {
-            return $baseSeconds + max(0, $praktikum->phase_started_at->diffInSeconds($now));
+            $seconds += max(
+                0,
+                $praktikum->phase_started_at->diffInSeconds($now)
+            );
         }
 
-        return $baseSeconds;
+        return $seconds;
     }
 
-    private function resetPhaseTiming(Praktikum $praktikum, Carbon $now): void
-    {
+    private function resetTiming(
+        Praktikum $praktikum,
+        Carbon $now
+    ): void {
         $praktikum->phase_elapsed_seconds = 0;
         $praktikum->phase_started_at = $now;
     }
 
-    private function freezePhaseTiming(Praktikum $praktikum, Carbon $now): void
-    {
-        $praktikum->phase_elapsed_seconds = $this->calculatePhaseElapsedSeconds($praktikum, $now);
+    private function freezeTiming(
+        Praktikum $praktikum,
+        Carbon $now
+    ): void {
+        $praktikum->phase_elapsed_seconds =
+            $this->elapsed($praktikum, $now);
+
         $praktikum->phase_started_at = null;
     }
 
-    private function respondWithServerError(\Throwable $throwable): JsonResponse
+    private function serverError(\Throwable $e): JsonResponse
     {
+        report($e);
+
         return response()->json([
             'status' => 'error',
             'message' => 'An error occurred while processing the request.',
-            'error' => $throwable->getMessage(),
+            'error' => $e->getMessage(),
         ], 500);
     }
 }

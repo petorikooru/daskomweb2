@@ -1,96 +1,70 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { soalQueryKey } from "./useSoalQuery";
 
-const normalizeModuleId = (value) => {
-    if (value === undefined || value === null || value === "") {
-        return null;
+export const soalComparisonQueryKey = (
+    kategori,
+    regularModuleId,
+    englishModuleId,
+) => [
+    "soal-comparison",
+    kategori,
+    regularModuleId == null ? "" : String(regularModuleId),
+    englishModuleId == null ? "" : String(englishModuleId),
+];
+
+const normalizeQuestions = (data) => {
+    if (Array.isArray(data?.soal)) {
+        return data.soal;
     }
 
-    return String(value);
-};
-
-const extractSoalPayload = (responseData) => {
-    if (!responseData) {
-        return [];
-    }
-
-    if (Array.isArray(responseData?.soal)) {
-        return responseData.soal;
-    }
-
-    if (Array.isArray(responseData?.data)) {
-        return responseData.data;
+    if (Array.isArray(data?.data)) {
+        return data.data;
     }
 
     return [];
 };
 
-export const soalComparisonQueryKey = (kategoriSoal, regularModuleId, englishModuleId) => [
-    "soal-comparison",
-    kategoriSoal ?? null,
-    normalizeModuleId(regularModuleId),
-    normalizeModuleId(englishModuleId),
-];
+const fetchQuestions = async (kategori, moduleId) => {
+    if (!kategori || !moduleId) {
+        return [];
+    }
+
+    const { data } = await api.get(
+        `/api-v1/soal-${kategori}/${String(moduleId)}`,
+    );
+
+    return normalizeQuestions(data);
+};
 
 export const useSoalComparison = (
-    kategoriSoal,
+    kategori,
     regularModuleId,
     englishModuleId,
     options = {},
-) => {
-    const queryClient = useQueryClient();
-    const normalizedRegularId = normalizeModuleId(regularModuleId);
-    const normalizedEnglishId = normalizeModuleId(englishModuleId);
-    const { enabled: userEnabled, ...restOptions } = options;
-
-    return useQuery({
-        queryKey: soalComparisonQueryKey(kategoriSoal, normalizedRegularId, normalizedEnglishId),
+) =>
+    useQuery({
+        queryKey: soalComparisonQueryKey(
+            kategori,
+            regularModuleId,
+            englishModuleId,
+        ),
         queryFn: async () => {
-            const result = {
-                regular: null,
-                english: null,
-            };
-
-            if (!kategoriSoal) {
-                return result;
-            }
-
-            const fetchDataset = async (moduleId) => {
-                if (!moduleId) {
-                    return null;
-                }
-
-                const existing = queryClient.getQueryData(soalQueryKey(kategoriSoal, moduleId));
-                if (existing) {
-                    return {
-                        modulId: moduleId,
-                        items: existing,
-                    };
-                }
-
-                const { data } = await api.get(`/api-v1/soal-${kategoriSoal}/${moduleId}`);
-                const payload = extractSoalPayload(data);
-                queryClient.setQueryData(soalQueryKey(kategoriSoal, moduleId), payload);
-                return {
-                    modulId: moduleId,
-                    items: payload,
-                };
-            };
-
-            const [regularData, englishData] = await Promise.all([
-                fetchDataset(normalizedRegularId),
-                fetchDataset(normalizedEnglishId),
+            const [regular, english] = await Promise.all([
+                fetchQuestions(kategori, regularModuleId),
+                fetchQuestions(kategori, englishModuleId),
             ]);
 
-            result.regular = regularData;
-            result.english = englishData;
-
-            return result;
+            return {
+                regular: {
+                    modulId: String(regularModuleId),
+                    items: regular,
+                },
+                english: {
+                    modulId: String(englishModuleId),
+                    items: english,
+                },
+            };
         },
-        enabled:
-            Boolean(kategoriSoal && (normalizedRegularId || normalizedEnglishId)) && (userEnabled ?? true),
-        refetchOnWindowFocus: false,
-        ...restOptions,
+        enabled: Boolean(kategori && regularModuleId && englishModuleId),
+        ...options,
     });
-};

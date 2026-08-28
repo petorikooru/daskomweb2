@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Image } from "@imagekit/react";
 import MarkdownRenderer from "../../MarkdownRenderer";
 import QuestionCommentInput from "./QuestionCommentInput";
+import QuestionNavigator from "@/Components/Praktikans/Common/QuestionNavigator";
+import useQuestionNavigation from "@/hooks/praktikum/useQuestionNavigation";
 import { useImageKitUpload } from "@/hooks/useImageKitUpload";
-import { Image } from "@imagekit/react";
-
 
 export default function Jurnal({
     isLoading = false,
@@ -11,519 +12,137 @@ export default function Jurnal({
     questions = [],
     answers = [],
     setAnswers,
-    setQuestionsCount,
-    onSubmitTask,
-    tipeSoal = null,
+    tipeSoal = "jurnal",
     praktikanId = null,
-    isCommentEnabled = false,
+    isCommentEnabled = false
 }) {
-    const [uploadingIndexes, setUploadingIndexes] = useState({});
-    const [uploadProgress, setUploadProgress] = useState({});
+    const [uploading, setUploading] = useState({});
     const [previews, setPreviews] = useState({});
     const { upload } = useImageKitUpload();
+    const { panelRef, active, setActive, goTo } = useQuestionNavigation(questions);
 
-    useEffect(() => {
-        setQuestionsCount(Array.isArray(questions) ? questions.length : 0);
-    }, [questions, setQuestionsCount]);
+    useEffect(() => () => {
+        Object.values(previews).forEach((url) => url && URL.revokeObjectURL(url));
+    }, [previews]);
 
-    const groupedQuestions = useMemo(() => {
-        if (!Array.isArray(questions)) {
-            return { fitb: [], jurnal: [] };
-        }
-
-        return {
-            fitb: questions.filter((question) => question.questionType === "fitb"),
-            jurnal: questions.filter((question) => question.questionType !== "fitb"),
-        };
-    }, [questions]);
-
-    const handleInputChange = (index, value) => {
-        const updated = [...answers];
-        updated[index] = value;
-        setAnswers(updated);
-    };
-
-    const triggerFileInput = (index) => {
-        const input = document.getElementById(`file-upload-${index}`);
-        if (input) {
-            input.click();
-        }
-    };
-
-    const handleFileUpload = async (index, file) => {
-        if (!file) {
-            return;
-        }
-
-        // Check file size (10MB limit)
-        if (file.size > 10485760) {
-            alert("File size must be less than 10MB");
-            return;
-        }
-
-        // Check file type (images only)
-        if (!file.type.startsWith('image/')) {
-            alert("Please upload an image file");
-            return;
-        }
-
-        setUploadingIndexes(prev => ({ ...prev, [index]: true }));
-        setUploadProgress(prev => ({ ...prev, [index]: 0 }));
-
-        try {
-            // Create preview
-            const previewUrl = URL.createObjectURL(file);
-            setPreviews(prev => ({ ...prev, [index]: previewUrl }));
-
-            // Upload to ImageKit
-            const uploadResult = await upload(file, 'daskom/jawaban-jurnal', null, true);
-
-            // Store the upload metadata in answers
-            const updated = [...answers];
-            updated[index] = {
-                type: 'file',
-                url: uploadResult.url,
-                fileId: uploadResult.fileId,
-                filePath: uploadResult.filePath,
-            };
-            setAnswers(updated);
-
-        } catch (error) {
-            console.error('Upload error:', error);
-            alert('Failed to upload file. Please try again.');
-            setPreviews(prev => {
-                const newPreviews = { ...prev };
-                delete newPreviews[index];
-                return newPreviews;
-            });
-        } finally {
-            setUploadingIndexes(prev => {
-                const newState = { ...prev };
-                delete newState[index];
-                return newState;
-            });
-            setUploadProgress(prev => {
-                const newState = { ...prev };
-                delete newState[index];
-                return newState;
-            });
-        }
-    };
-
-    const handleDeleteFile = (index) => {
-        // Clear the file data
-        const updated = [...answers];
-        updated[index] = '';
-        setAnswers(updated);
-
-        // Clear preview
-        setPreviews(prev => {
-            const newPreviews = { ...prev };
-            if (newPreviews[index]) {
-                URL.revokeObjectURL(newPreviews[index]);
-                delete newPreviews[index];
-            }
-            return newPreviews;
+    const update = (index, value) => {
+        setActive(index);
+        setAnswers((prev) => {
+            const next = [...prev];
+            next[index] = value;
+            return next;
         });
     };
 
-    const handleSubmit = () => {
-        if (onSubmitTask) {
-            onSubmitTask("Jurnal", answers);
+    const pick = (index) => document.getElementById(`jurnal-file-${index}`)?.click();
+
+    const uploadFile = async (index, file) => {
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) return alert("File size must be less than 10MB");
+        if (!file.type.startsWith("image/")) return alert("Please upload an image file");
+
+        setActive(index);
+        setUploading((x) => ({ ...x, [index]: true }));
+
+        const old = previews[index];
+        if (old) URL.revokeObjectURL(old);
+
+        const preview = URL.createObjectURL(file);
+        setPreviews((x) => ({ ...x, [index]: preview }));
+
+        try {
+            const result = await upload(file, "daskom/jawaban-jurnal", null, true);
+            update(index, { type: "file", url: result.url, fileId: result.fileId, filePath: result.filePath });
+        } catch (error) {
+            console.error("[Jurnal Upload]", error);
+            URL.revokeObjectURL(preview);
+            setPreviews((x) => {
+                const next = { ...x };
+                delete next[index];
+                return next;
+            });
+            alert("Failed to upload file. Please try again.");
+        } finally {
+            setUploading((x) => {
+                const next = { ...x };
+                delete next[index];
+                return next;
+            });
         }
     };
 
+    const removeFile = (index) => {
+        const preview = previews[index];
+        if (preview) URL.revokeObjectURL(preview);
+        setPreviews((x) => {
+            const next = { ...x };
+            delete next[index];
+            return next;
+        });
+        update(index, "");
+    };
 
-
-    if (isLoading) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-depth-secondary">Memuat soal jurnal...</p>
-            </div>
-        );
-    }
-
-    if (errorMessage) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-red-400 font-semibold">{errorMessage}</p>
-            </div>
-        );
-    }
-
-    if (!Array.isArray(questions) || questions.length === 0) {
-        return (
-            <div className="mt-[1vh] p-5 max-w-4xl mx-auto text-center">
-                <p className="text-depth-secondary">Belum ada soal untuk modul ini.</p>
-            </div>
-        );
-    }
+    if (isLoading) return <State>Memuat soal Jurnal...</State>;
+    if (errorMessage) return <State error>{errorMessage}</State>;
+    if (!questions.length) return <State>Belum ada soal Jurnal untuk modul ini.</State>;
 
     return (
-        <div className="p-5 py-0 transition-all duration-300 w-full ">
-            {/* Header */}
-            <div className="flex bg-[var(--depth-color-primary)] rounded-depth-lg py-2 px-3 mb-4 justify-center shadow-depth-lg">
-                <h1 className="text-white text-center font-bold text-lg">
-                    Jurnal
-                </h1>
-            </div>
+        <div className="w-full p-5 py-0">
+            <div className="mb-4 flex justify-center rounded-depth-lg bg-[var(--depth-color-primary)] px-3 py-2 shadow-depth-lg"><h1 className="text-lg font-bold text-white">Jurnal</h1></div>
+            <div ref={panelRef} className="max-h-[80vh] overflow-y-auto overflow-x-hidden rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-lg" style={{ overflowAnchor: "none" }}>
+                <QuestionNavigator questions={questions} answers={answers} active={active} onChange={goTo} />
+                <div className="space-y-4">
+                    {questions.map((q, index) => {
+                        const fileEnabled = Boolean(q.enable_file_upload);
+                        const answer = answers[index];
+                        const fileAnswer = typeof answer === "object" && answer?.type === "file";
+                        const preview = previews[index];
+                        const image = fileAnswer ? answer.url : preview;
+                        const isFitb = q.questionType === "fitb";
 
-            {/* Questions Container */}
-            <div className="space-y-5 max-h-[80vh] p-4 rounded-depth-lg border border-depth bg-depth-card overflow-y-auto overflow-x-hidden shadow-depth-lg">
-                {/* FITB Questions Section */}
-                {groupedQuestions.fitb.length > 0 && (
-                    <section className="space-y-4">
-                        {groupedQuestions.fitb.map((question) => {
-                            const index = questions.findIndex((item) => item.id === question.id);
-
-                            if (index === -1) {
-                                return null;
-                            }
-
-                            const isFileUploadEnabled = question.enable_file_upload || false;
-                            const currentAnswer = answers[index];
-                            const isFileAnswer = typeof currentAnswer === 'object' && currentAnswer?.type === 'file';
-
-                            return (
-                                <div
-                                    key={question.id ?? `fitb-${index}`}
-                                    className="p-3.5 rounded-depth-lg border border-depth bg-depth-interactive shadow-depth-md hover:shadow-depth-lg transition-all duration-200"
-                                >
-                                    {/* Question and Answer Side by Side */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* Question Column */}
-                                        <div className="flex flex-col gap-3">
-                                            {/* Question Number and Text */}
-                                            <div className="mb-3">
-                                                <div className="flex items-start gap-2.5 pr-8">
-                                                    <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-depth-full bg-[var(--depth-color-primary)] text-white font-bold text-xs shadow-depth-sm">
-                                                        {index + 1}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0 text-depth-primary font-medium text-sm leading-relaxed max-h-[60vh] overflow-y-auto">
-                                                        <MarkdownRenderer content={question.text} />
-                                                    </div>
-                                                </div>
-                                                <QuestionCommentInput
-                                                    questionId={question.id ?? question.soalId ?? question.soal_id ?? null}
-                                                    tipeSoal={question.questionType === "fitb" ? "fitb" : tipeSoal}
-                                                    praktikanId={praktikanId}
-                                                    isEnabled={isCommentEnabled}
-                                                    className="pl-11"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Answer Column */}
-                                        <div className="flex flex-col gap-3 min-w-0">
-                                            {isFileUploadEnabled ? (
-                                                <div className="space-y-3">
-                                                    {!isFileAnswer && !previews[index] ? (
-                                                        <div>
-                                                            <label
-                                                                htmlFor={`file-upload-${index}`}
-                                                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-depth rounded-depth-md cursor-pointer bg-depth-card hover:bg-depth-hover transition-all"
-                                                            >
-                                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                                    <svg
-                                                                        className="w-10 h-10 mb-3 text-depth-secondary"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={2}
-                                                                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                                                        />
-                                                                    </svg>
-                                                                    <p className="mb-2 text-sm text-depth-secondary">
-                                                                        <span className="font-semibold">Click to upload</span> or drag and drop
-                                                                    </p>
-                                                                    <p className="text-xs text-depth-secondary">
-                                                                        PNG, JPG, GIF up to 10MB
-                                                                    </p>
-                                                                </div>
-                                                            </label>
-                                                            <div className="mt-3 text-right">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => triggerFileInput(index)}
-                                                                    className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
-                                                                >
-                                                                    Pilih File
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="relative rounded-depth-md border border-depth bg-depth-card p-3">
-                                                            {uploadingIndexes[index] ? (
-                                                                <div className="flex flex-col items-center justify-center py-8">
-                                                                    <div className="w-16 h-16 border-4 border-[var(--depth-color-primary)] border-t-transparent rounded-full animate-spin mb-3"></div>
-                                                                    <p className="text-sm text-depth-secondary">
-                                                                        Uploading... {uploadProgress[index]}%
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {isFileAnswer && currentAnswer.url ? (
-                                                                        <Image
-                                                                            src={currentAnswer.url}
-                                                                            alt="Uploaded answer"
-                                                                            transformation={[{ width: "800", quality: "80" }]}
-                                                                            className="w-full h-auto rounded-depth-md shadow-depth-sm"
-                                                                            loading="lazy"
-                                                                        />
-                                                                    ) : previews[index] ? (
-                                                                        <img
-                                                                            src={previews[index]}
-                                                                            alt="Preview"
-                                                                            className="w-full h-auto rounded-depth-md shadow-depth-sm"
-                                                                        />
-                                                                    ) : null}
-
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleDeleteFile(index)}
-                                                                        className="absolute top-5 right-5 p-2 rounded-depth-full bg-red-500 text-white hover:bg-red-600 shadow-depth-md transition-all"
-                                                                        title="Delete image"
-                                                                    >
-                                                                        <svg
-                                                                            className="w-5 h-5"
-                                                                            fill="none"
-                                                                            stroke="currentColor"
-                                                                            viewBox="0 0 24 24"
-                                                                        >
-                                                                            <path
-                                                                                strokeLinecap="round"
-                                                                                strokeLinejoin="round"
-                                                                                strokeWidth={2}
-                                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                                            />
-                                                                        </svg>
-                                                                    </button>
-                                                                    <div className="mt-3 text-right">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => triggerFileInput(index)}
-                                                                            className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
-                                                                        >
-                                                                            Ganti File
-                                                                        </button>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <input
-                                                        id={`file-upload-${index}`}
-                                                        type="file"
-                                                        className="hidden"
-                                                        accept="image/*"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files[0];
-                                                            if (file) {
-                                                                handleFileUpload(index, file);
-                                                            }
-                                                        }}
-                                                        disabled={uploadingIndexes[index]}
-                                                    />
+                        return (
+                            <div key={q.key ?? `${q.questionType}:${q.id ?? index}`} data-question-index={index} onClick={() => setActive(index)} onFocusCapture={() => setActive(index)} className="rounded-depth-lg border border-depth bg-depth-interactive p-4 shadow-depth-md">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-depth-full bg-[var(--depth-color-primary)] text-xs font-bold text-white">{index + 1}</span>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-medium leading-relaxed text-depth-primary"><MarkdownRenderer content={q.text} /></div>
+                                        <QuestionCommentInput questionId={q.id ?? q.soalId ?? q.soal_id ?? null} tipeSoal={isFitb ? "fitb" : tipeSoal} praktikanId={praktikanId} isEnabled={isCommentEnabled} className="mt-2" />
+                                    </div>
+                                    {fileEnabled ? (
+                                        <div className="min-w-0">
+                                            {image ? (
+                                                <div className="relative rounded-depth-md border border-depth bg-depth-card p-3">
+                                                    {uploading[index] ? <div className="flex min-h-40 items-center justify-center text-sm font-semibold text-depth-secondary">Uploading...</div> : fileAnswer && answer.url ? <Image src={answer.url} alt={`Jawaban soal ${index + 1}`} transformation={[{ width: "800", quality: "80" }]} className="max-h-96 w-full rounded-depth-md object-contain" loading="lazy" /> : <img src={preview} alt={`Preview soal ${index + 1}`} className="max-h-96 w-full rounded-depth-md object-contain" />}
+                                                    {!uploading[index] && <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={(e) => { e.stopPropagation(); pick(index); }} className="rounded-depth-md border border-depth bg-depth-interactive px-3 py-1.5 text-xs font-semibold text-depth-primary">Ganti File</button><button type="button" onClick={(e) => { e.stopPropagation(); removeFile(index); }} className="rounded-depth-md bg-red-500 px-3 py-1.5 text-xs font-semibold text-white">Hapus</button></div>}
                                                 </div>
                                             ) : (
-                                                <textarea
-                                                    className="w-full bg-depth-card h-full   p-3 border border-depth rounded-depth-md text-depth-primary placeholder-depth-secondary shadow-depth-sm focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)] focus:border-transparent transition-all "
-                                                    placeholder="Masukkan jawaban di sini..."
-                                                    value={answers[index] ?? ""}
-                                                    onChange={(event) => handleInputChange(index, event.target.value)}
-                                                />
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); pick(index); }} className="flex min-h-40 w-full flex-col items-center justify-center rounded-depth-md border-2 border-dashed border-depth bg-depth-card p-5 text-center text-sm text-depth-secondary transition hover:bg-depth-interactive">
+                                                    <svg className="mb-2 h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                                    <span className="font-semibold">Pilih gambar</span>
+                                                    <span className="mt-1 text-xs">PNG, JPG, GIF • max 10MB</span>
+                                                </button>
                                             )}
+                                            <input id={`jurnal-file-${index}`} type="file" accept="image/*" className="hidden" disabled={uploading[index]} onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                e.target.value = "";
+                                                if (file) uploadFile(index, file);
+                                            }} />
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <textarea value={answers[index] ?? ""} onChange={(e) => update(index, e.target.value)} onFocus={() => setActive(index)} placeholder="Masukkan jawaban di sini..." className="min-h-40 w-full resize-y font-mono rounded-depth-md border border-depth bg-depth-card p-3 text-sm text-depth-primary shadow-depth-inset focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]" />
+                                    )}
                                 </div>
-                            );
-                        })}
-                    </section>
-                )}
-
-                {/* Jurnal Questions Section */}
-                {groupedQuestions.jurnal.length > 0 && (
-                    <section className="space-y-4">
-                        {groupedQuestions.jurnal.map((question) => {
-                            const index = questions.findIndex((item) => item.id === question.id);
-
-                            if (index === -1) {
-                                return null;
-                            }
-
-                            const isFileUploadEnabled = question.enable_file_upload || false;
-                            const currentAnswer = answers[index];
-                            const isFileAnswer = typeof currentAnswer === 'object' && currentAnswer?.type === 'file';
-
-                            return (
-                                <div
-                                    key={question.id ?? `jurnal-${index}`}
-                                    className="p-3.5 rounded-depth-lg border border-depth bg-depth-interactive shadow-depth-md hover:shadow-depth-lg transition-all duration-200"
-                                >
-                                    {/* Question and Answer Side by Side */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* Question Column */}
-                                        <div className="flex flex-col gap-3 min-w-0">
-                                            {/* Question Number and Text */}
-                                            <div className="mb-3">
-                                                <div className="flex items-start gap-2.5 pr-8">
-                                                    <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-depth-full bg-[var(--depth-color-primary)] text-white font-bold text-xs shadow-depth-sm">
-                                                        {index + 1}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0 text-depth-primary font-medium text-sm leading-relaxed">
-                                                        <MarkdownRenderer content={question.text} />
-                                                    </div>
-                                                </div>
-                                                <QuestionCommentInput
-                                                    questionId={question.id ?? question.soalId ?? question.soal_id ?? null}
-                                                    tipeSoal={question.questionType === "fitb" ? "fitb" : tipeSoal}
-                                                    praktikanId={praktikanId}
-                                                    isEnabled={isCommentEnabled}
-                                                    className="pl-11"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Answer Column */}
-                                        <div className="flex flex-col gap-3 min-w-0">
-                                            {isFileUploadEnabled ? (
-                                                <div className="space-y-3">
-                                                    {/* File Upload Area */}
-                                                    {!isFileAnswer && !previews[index] ? (
-                                                        <div>
-                                                            <label
-                                                                htmlFor={`file-upload-${index}`}
-                                                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-depth rounded-depth-md cursor-pointer bg-depth-card hover:bg-depth-hover transition-all"
-                                                            >
-                                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                                    <svg
-                                                                        className="w-10 h-10 mb-3 text-depth-secondary"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={2}
-                                                                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                                                        />
-                                                                    </svg>
-                                                                    <p className="mb-2 text-sm text-depth-secondary">
-                                                                        <span className="font-semibold">Click to upload</span> or drag and drop
-                                                                    </p>
-                                                                    <p className="text-xs text-depth-secondary">
-                                                                        PNG, JPG, GIF up to 10MB
-                                                                    </p>
-                                                                </div>
-                                                            </label>
-                                                            <div className="mt-3 text-right">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => triggerFileInput(index)}
-                                                                    className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
-                                                                >
-                                                                    Pilih File
-                                                                </button>
-                                                            </div>
-                                                            <input
-                                                                id={`file-upload-${index}`}
-                                                                type="file"
-                                                                className="hidden"
-                                                                accept="image/*"
-                                                                onChange={(e) => {
-                                                                    const file = e.target.files[0];
-                                                                    if (file) {
-                                                                        handleFileUpload(index, file);
-                                                                    }
-                                                                }}
-                                                                disabled={uploadingIndexes[index]}
-                                                            />
-                                                        </div>
-                                                    ) : (
-                                                        /* Image Preview */
-                                                        <div className="relative rounded-depth-md border border-depth bg-depth-card p-3">
-                                                            {uploadingIndexes[index] ? (
-                                                                <div className="flex flex-col items-center justify-center py-8">
-                                                                    <div className="w-16 h-16 border-4 border-[var(--depth-color-primary)] border-t-transparent rounded-full animate-spin mb-3"></div>
-                                                                    <p className="text-sm text-depth-secondary">
-                                                                        Uploading... {uploadProgress[index]}%
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {isFileAnswer && currentAnswer.url ? (
-                                                                        <Image
-                                                                            src={currentAnswer.url}
-                                                                            alt="Uploaded answer"
-                                                                            transformation={[{ width: "800", quality: "80" }]}
-                                                                            className="w-full h-auto rounded-depth-md shadow-depth-sm"
-                                                                            loading="lazy"
-                                                                        />
-                                                                    ) : previews[index] ? (
-                                                                        <img
-                                                                            src={previews[index]}
-                                                                            alt="Preview"
-                                                                            className="w-full h-auto rounded-depth-md shadow-depth-sm"
-                                                                        />
-                                                                    ) : null}
-
-                                                                    {/* Delete Button */}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleDeleteFile(index)}
-                                                                        className="absolute top-5 right-5 p-2 rounded-depth-full bg-red-500 text-white hover:bg-red-600 shadow-depth-md transition-all"
-                                                                        title="Delete image"
-                                                                    >
-                                                                        <svg
-                                                                            className="w-5 h-5"
-                                                                            fill="none"
-                                                                            stroke="currentColor"
-                                                                            viewBox="0 0 24 24"
-                                                                        >
-                                                                            <path
-                                                                                strokeLinecap="round"
-                                                                                strokeLinejoin="round"
-                                                                                strokeWidth={2}
-                                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                                            />
-                                                                        </svg>
-                                                                    </button>
-                                                                    <div className="mt-3 text-right">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => triggerFileInput(index)}
-                                                                            className="inline-flex items-center rounded-depth-md bg-[var(--depth-color-primary)] px-4 py-1.5 text-xs font-semibold text-white shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
-                                                                        >
-                                                                            Ganti File
-                                                                        </button>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                /* Text Input */
-                                                <textarea
-                                                    className="w-full bg-depth-card h-full p-3 border border-depth rounded-depth-md text-depth-primary placeholder-depth-secondary shadow-depth-sm focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)] focus:border-transparent transition-all "
-                                                    placeholder="Tulis jawaban lengkap Anda di sini..."
-                                                    value={answers[index] ?? ""}
-                                                    onChange={(event) => handleInputChange(index, event.target.value)}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </section>
-                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
+}
+
+function State({ children, error = false }) {
+    return <div className={`mx-auto mt-[20vh] p-5 text-center text-sm font-semibold ${error ? "text-red-400" : "text-depth-secondary"}`}>{children}</div>;
 }

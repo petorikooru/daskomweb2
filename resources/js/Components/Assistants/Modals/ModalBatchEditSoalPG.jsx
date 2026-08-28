@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ModalOverlay } from "@/Components/Common/ModalPortal";
 import ModalCloseButton from "@/Components/Common/ModalCloseButton";
-import DepthToggleButton from "@/Components/Common/DepthToggleButton";
 
 import MarkdownRenderer from "../../MarkdownRenderer";
 import PairNavigator from "./PairNavigator";
+
+
+const OPTION_COUNT = 4;
+const LABELS = ["A", "B", "C", "D"];
 
 
 const getModuleId = (item) => {
@@ -44,27 +47,88 @@ const extractQuestions = (dataset) => {
 };
 
 
+const isCorrect = (question, option, index) => {
+    if (typeof option?.is_correct === "boolean") {
+        return option.is_correct;
+    }
+
+    if (option?.id && question?.opsi_benar_id) {
+        return option.id === question.opsi_benar_id;
+    }
+
+    return question?.correct_option === index;
+};
+
+
+const emptyOptions = () =>
+    Array.from(
+        { length: OPTION_COUNT },
+        () => ({
+            id: null,
+            text: "",
+            is_correct: false,
+        }),
+    );
+
+
 const emptyDraft = () => ({
     id: null,
-    soal: "",
-    enable_file_upload: false,
-    originalSoal: "",
-    originalEnableFileUpload: false,
+    pertanyaan: "",
+    options: emptyOptions(),
+    correctIndex: 0,
+    originalPertanyaan: "",
+    originalOptions: emptyOptions(),
+    originalCorrectIndex: 0,
     _deleted: false,
 });
 
 
+const normalizeOptions = (question) => {
+    const result = (question?.options ?? []).map((option) => ({
+        id: option?.id ?? null,
+        text: option?.text ?? "",
+        is_correct: option?.is_correct,
+    }));
+
+    while (result.length < OPTION_COUNT) {
+        result.push({
+            id: null,
+            text: "",
+            is_correct: false,
+        });
+    }
+
+    return result.slice(0, OPTION_COUNT);
+};
+
+
 const createDrafts = (dataset) =>
-    extractQuestions(dataset).map((item) => {
-        const soal = item?.soal ?? item?.pertanyaan ?? "";
-        const upload = Boolean(item?.enable_file_upload);
+    extractQuestions(dataset).map((question) => {
+        const options = normalizeOptions(question);
+        const found = options.findIndex((option, index) =>
+            isCorrect(question, option, index),
+        );
+
+        const correctIndex =
+            found >= 0
+                ? found
+                : typeof question?.correct_option === "number"
+                  ? question.correct_option
+                  : 0;
+
+        const pertanyaan =
+            question?.pertanyaan ??
+            question?.soal ??
+            "";
 
         return {
-            id: item?.id ?? item?.soal_id ?? null,
-            soal,
-            enable_file_upload: upload,
-            originalSoal: soal,
-            originalEnableFileUpload: upload,
+            id: question?.id ?? null,
+            pertanyaan,
+            options,
+            correctIndex,
+            originalPertanyaan: pertanyaan,
+            originalOptions: options.map((option) => ({ ...option })),
+            originalCorrectIndex: correctIndex,
             _deleted: false,
         };
     });
@@ -74,24 +138,24 @@ const activeCount = (items) =>
     items.filter(
         (item) =>
             !item?._deleted &&
-            String(item?.soal ?? "").trim(),
+            String(item?.pertanyaan ?? "").trim(),
     ).length;
 
 
-function QuestionCard({
+function PGCard({
     item,
     index,
     side,
-    supportsFileUpload,
     isSaving,
-    onChange,
+    onPatch,
+    onOption,
     onCreate,
     onCopy,
 }) {
     if (!item) {
         return (
             <div className="flex min-h-[300px] flex-col items-center justify-center rounded-depth-lg border border-dashed border-depth bg-depth-card p-5 text-center">
-                <p className="text-sm font-semibold text-depth-primary">
+                <p className="text-sm font-semibold">
                     Soal {index + 1} tidak ada
                 </p>
 
@@ -103,7 +167,7 @@ function QuestionCard({
                     type="button"
                     onClick={onCreate}
                     disabled={isSaving}
-                    className="mt-4 rounded-depth-md border border-depth bg-depth-interactive px-4 py-2 text-xs font-semibold text-depth-primary"
+                    className="mt-4 rounded-depth-md border border-depth bg-depth-interactive px-4 py-2 text-xs font-semibold"
                 >
                     + Buat Soal
                 </button>
@@ -113,16 +177,15 @@ function QuestionCard({
 
     if (item._deleted) {
         return (
-            <div className="flex min-h-[300px] flex-col items-center justify-center rounded-depth-lg border border-red-500/40 bg-red-500/10 p-5 text-center">
-                <span className="text-xs font-semibold text-red-400">
+            <div className="flex min-h-[300px] flex-col items-center justify-center rounded-depth-lg border border-red-500/40 bg-red-500/10 p-5">
+                <p className="text-sm font-semibold text-red-400">
                     Soal {index + 1} akan dihapus
-                </span>
+                </p>
 
                 <button
                     type="button"
-                    onClick={() => onChange({ _deleted: false })}
-                    disabled={isSaving}
-                    className="mt-4 rounded-depth-md border border-depth bg-depth-card px-4 py-2 text-xs font-semibold text-depth-primary"
+                    onClick={() => onPatch({ _deleted: false })}
+                    className="mt-4 rounded-depth-md border border-depth bg-depth-card px-4 py-2 text-xs font-semibold"
                 >
                     Batalkan Hapus
                 </button>
@@ -134,7 +197,7 @@ function QuestionCard({
         <div className="space-y-4 rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-sm">
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-depth-primary">
+                    <span className="text-sm font-semibold">
                         Soal {index + 1}
                     </span>
 
@@ -150,20 +213,18 @@ function QuestionCard({
                 </div>
 
                 <div className="flex gap-2">
-                    {onCopy && (
-                        <button
-                            type="button"
-                            onClick={onCopy}
-                            disabled={!item.soal.trim() || isSaving}
-                            className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40"
-                        >
-                            {side === "ID" ? "Copy → EN" : "← Copy to ID"}
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={onCopy}
+                        disabled={!item.pertanyaan.trim() || isSaving}
+                        className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40"
+                    >
+                        {side === "ID" ? "Copy → EN" : "← Copy to ID"}
+                    </button>
 
                     <button
                         type="button"
-                        onClick={() => onChange({ _deleted: true })}
+                        onClick={() => onPatch({ _deleted: true })}
                         disabled={isSaving}
                         className="rounded-depth-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-400"
                     >
@@ -172,19 +233,23 @@ function QuestionCard({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                 <div>
                     <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">
-                        Markdown
+                        Pertanyaan Markdown
                     </label>
 
                     <textarea
-                        value={item.soal}
-                        onChange={(e) => onChange({ soal: e.target.value })}
+                        value={item.pertanyaan}
+                        onChange={(e) =>
+                            onPatch({
+                                pertanyaan: e.target.value,
+                            })
+                        }
                         spellCheck={false}
-                        rows={7}
+                        rows={5}
                         disabled={isSaving}
-                        className="min-h-[150px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 font-mono text-sm leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)] disabled:opacity-60"
+                        className="min-h-[120px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 font-mono text-sm leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]"
                     />
                 </div>
 
@@ -193,13 +258,17 @@ function QuestionCard({
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">
                             Preview
                         </span>
+
+                        <span className="text-[10px] text-emerald-500">
+                            ● Live
+                        </span>
                     </div>
 
-                    <div className="min-h-[150px] max-h-[350px] overflow-auto rounded-depth-md border border-depth bg-depth-interactive p-3 shadow-depth-inset">
-                        {item.soal.trim() ? (
-                            <MarkdownRenderer content={item.soal} />
+                    <div className="min-h-[120px] max-h-[260px] overflow-auto rounded-depth-md border border-depth bg-depth-interactive p-3 shadow-depth-inset">
+                        {item.pertanyaan.trim() ? (
+                            <MarkdownRenderer content={item.pertanyaan} />
                         ) : (
-                            <div className="flex min-h-[120px] items-center justify-center text-xs italic text-depth-secondary">
+                            <div className="flex min-h-[90px] items-center justify-center text-xs italic text-depth-secondary">
                                 Belum diisi.
                             </div>
                         )}
@@ -207,36 +276,83 @@ function QuestionCard({
                 </div>
             </div>
 
-            {supportsFileUpload && (
-                <div className="flex items-center justify-between rounded-depth-md border border-depth bg-depth-interactive px-3 py-2">
-                    <div>
-                        <p className="text-xs font-semibold text-depth-primary">
-                            File Upload
-                        </p>
+            <div className="space-y-2">
+                {item.options.map((option, optionIndex) => {
+                    const correct =
+                        item.correctIndex === optionIndex;
 
-                        <p className="text-[10px] text-depth-secondary">
-                            Izinkan jawaban berupa gambar.
-                        </p>
-                    </div>
+                    return (
+                        <div
+                            key={option.id ?? optionIndex}
+                            className={`grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-depth-md border p-3 ${
+                                correct
+                                    ? "border-[var(--depth-color-primary)]"
+                                    : "border-depth"
+                            }`}
+                        >
+                            <div className="flex items-start gap-2 pt-2">
+                                <input
+                                    type="radio"
+                                    name={`correct-${side}-${index}`}
+                                    checked={correct}
+                                    onChange={() =>
+                                        onPatch({
+                                            correctIndex: optionIndex,
+                                        })
+                                    }
+                                    disabled={isSaving}
+                                    className="mt-1 h-4 w-4 accent-[var(--depth-color-primary)]"
+                                />
 
-                    <DepthToggleButton
-                        isOn={item.enable_file_upload}
-                        onToggle={() =>
-                            onChange({
-                                enable_file_upload:
-                                    !item.enable_file_upload,
-                            })
-                        }
-                    />
-                </div>
-            )}
+                                <span
+                                    className={`flex h-7 w-7 items-center justify-center rounded-depth-md text-xs font-bold ${
+                                        correct
+                                            ? "bg-[var(--depth-color-primary)] text-white"
+                                            : "border border-depth bg-depth-interactive text-depth-secondary"
+                                    }`}
+                                >
+                                    {LABELS[optionIndex]}
+                                </span>
+                            </div>
+
+                            <div className="grid min-w-0 grid-cols-1 gap-2 2xl:grid-cols-2">
+                                <textarea
+                                    value={option.text}
+                                    onChange={(e) =>
+                                        onOption(
+                                            optionIndex,
+                                            e.target.value,
+                                        )
+                                    }
+                                    spellCheck={false}
+                                    rows={2}
+                                    disabled={isSaving}
+                                    className="min-h-[68px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-2.5 font-mono text-xs leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]"
+                                />
+
+                                <div className="min-h-[68px] max-h-[150px] overflow-auto rounded-depth-md border border-depth bg-depth-interactive p-2.5 text-sm shadow-depth-inset">
+                                    {option.text.trim() ? (
+                                        <MarkdownRenderer
+                                            content={option.text}
+                                        />
+                                    ) : (
+                                        <div className="flex min-h-[45px] items-center justify-center text-xs italic text-depth-secondary">
+                                            Belum diisi.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
 
 
-export default function ModalBatchEditSoal({
-    title = "Batch Edit Soal — ID / EN",
+export default function ModalBatchEditSoalPG({
+    title = "Batch Edit Soal PG — ID / EN",
     regularModules = [],
     englishModules = [],
     selectedRegularModuleId = "",
@@ -248,7 +364,6 @@ export default function ModalBatchEditSoal({
     isLoading = false,
     isFetching = false,
     isSaving = false,
-    supportsFileUpload = false,
     onClose,
     onSubmit,
 }) {
@@ -314,7 +429,6 @@ export default function ModalBatchEditSoal({
     );
 
     const hasChanges = regularDirty || englishDirty;
-    const countsMatch = regularCount === englishCount;
 
     useEffect(() => {
         setActivePair((current) =>
@@ -322,24 +436,19 @@ export default function ModalBatchEditSoal({
         );
     }, [rowCount]);
 
-    const patchRegular = (index, patch) => {
-        setRegularDrafts((items) =>
+    const patch = (setter, dirtySetter, index, patch) => {
+        setter((items) =>
             items.map((item, i) =>
-                i === index ? { ...item, ...patch } : item,
+                i === index
+                    ? {
+                          ...item,
+                          ...patch,
+                      }
+                    : item,
             ),
         );
 
-        setRegularDirty(true);
-    };
-
-    const patchEnglish = (index, patch) => {
-        setEnglishDrafts((items) =>
-            items.map((item, i) =>
-                i === index ? { ...item, ...patch } : item,
-            ),
-        );
-
-        setEnglishDirty(true);
+        dirtySetter(true);
     };
 
     const createAt = (setter, dirtySetter, index) => {
@@ -356,6 +465,34 @@ export default function ModalBatchEditSoal({
         dirtySetter(true);
     };
 
+    const patchOption = (
+        setter,
+        dirtySetter,
+        questionIndex,
+        optionIndex,
+        text,
+    ) => {
+        setter((items) =>
+            items.map((item, index) =>
+                index !== questionIndex
+                    ? item
+                    : {
+                          ...item,
+                          options: item.options.map((option, i) =>
+                              i === optionIndex
+                                  ? {
+                                        ...option,
+                                        text,
+                                    }
+                                  : option,
+                          ),
+                      },
+            ),
+        );
+
+        dirtySetter(true);
+    };
+
     const copy = (source, setter, dirtySetter, index) => {
         const item = source[index];
         if (!item) return;
@@ -367,11 +504,17 @@ export default function ModalBatchEditSoal({
                 next.push(emptyDraft());
             }
 
+            const destination = next[index];
+
             next[index] = {
-                ...next[index],
-                soal: item.soal,
-                enable_file_upload: item.enable_file_upload,
+                ...destination,
+                pertanyaan: item.pertanyaan,
+                correctIndex: item.correctIndex,
                 _deleted: false,
+                options: item.options.map((option, optionIndex) => ({
+                    id: destination?.options?.[optionIndex]?.id ?? null,
+                    text: option.text,
+                })),
             };
 
             return next;
@@ -438,20 +581,20 @@ export default function ModalBatchEditSoal({
         >
             <div
                 className="depth-modal-container flex max-h-[94vh] flex-col overflow-hidden p-0"
-                style={{ width: "96vw", maxWidth: "1500px" }}
+                style={{ width: "96vw", maxWidth: "1600px" }}
             >
                 <div className="depth-modal-header shrink-0 border-b border-depth px-6 py-4">
                     <div>
                         <h2 className="depth-modal-title">{title}</h2>
 
                         <p className="mt-1 text-xs text-depth-secondary">
-                            Edit modul Indonesia dan English secara berdampingan.
+                            Edit PG Indonesia dan English secara berdampingan.
                         </p>
                     </div>
 
                     <ModalCloseButton
                         onClick={handleClose}
-                        ariaLabel="Tutup batch edit soal"
+                        ariaLabel="Tutup batch edit PG"
                     />
                 </div>
 
@@ -521,12 +664,12 @@ export default function ModalBatchEditSoal({
 
                         <span
                             className={`rounded-depth-md border px-3 py-1.5 font-semibold ${
-                                countsMatch
+                                regularCount === englishCount
                                     ? "border-emerald-500/30 text-emerald-500"
                                     : "border-amber-500/30 text-amber-500"
                             }`}
                         >
-                            {countsMatch
+                            {regularCount === englishCount
                                 ? "Jumlah sama"
                                 : "Jumlah berbeda"}
                         </span>
@@ -547,7 +690,7 @@ export default function ModalBatchEditSoal({
                                 !selectedRegularModuleId ||
                                 !selectedEnglishModuleId
                             }
-                            className="ml-auto rounded-depth-md border border-depth bg-depth-card px-4 py-2 font-semibold text-depth-primary disabled:opacity-50"
+                            className="ml-auto rounded-depth-md border border-depth bg-depth-card px-4 py-2 font-semibold disabled:opacity-50"
                         >
                             + Tambah Pair
                         </button>
@@ -570,7 +713,7 @@ export default function ModalBatchEditSoal({
                             Memuat soal...
                         </div>
                     ) : rowCount === 0 ? (
-                        <div className="flex min-h-[350px] flex-col items-center justify-center rounded-depth-lg border border-dashed border-depth text-center">
+                        <div className="flex min-h-[350px] flex-col items-center justify-center rounded-depth-lg border border-dashed border-depth">
                             <p className="text-sm font-semibold">
                                 Belum ada soal.
                             </p>
@@ -584,15 +727,28 @@ export default function ModalBatchEditSoal({
                             </button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                            <QuestionCard
+                        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+                            <PGCard
                                 item={regularItem}
                                 index={activePair}
                                 side="ID"
-                                supportsFileUpload={supportsFileUpload}
                                 isSaving={isSaving}
-                                onChange={(patch) =>
-                                    patchRegular(activePair, patch)
+                                onPatch={(value) =>
+                                    patch(
+                                        setRegularDrafts,
+                                        setRegularDirty,
+                                        activePair,
+                                        value,
+                                    )
+                                }
+                                onOption={(optionIndex, text) =>
+                                    patchOption(
+                                        setRegularDrafts,
+                                        setRegularDirty,
+                                        activePair,
+                                        optionIndex,
+                                        text,
+                                    )
                                 }
                                 onCreate={() =>
                                     createAt(
@@ -611,14 +767,27 @@ export default function ModalBatchEditSoal({
                                 }
                             />
 
-                            <QuestionCard
+                            <PGCard
                                 item={englishItem}
                                 index={activePair}
                                 side="EN"
-                                supportsFileUpload={supportsFileUpload}
                                 isSaving={isSaving}
-                                onChange={(patch) =>
-                                    patchEnglish(activePair, patch)
+                                onPatch={(value) =>
+                                    patch(
+                                        setEnglishDrafts,
+                                        setEnglishDirty,
+                                        activePair,
+                                        value,
+                                    )
+                                }
+                                onOption={(optionIndex, text) =>
+                                    patchOption(
+                                        setEnglishDrafts,
+                                        setEnglishDirty,
+                                        activePair,
+                                        optionIndex,
+                                        text,
+                                    )
                                 }
                                 onCreate={() =>
                                     createAt(
@@ -658,7 +827,7 @@ export default function ModalBatchEditSoal({
                             type="button"
                             onClick={handleClose}
                             disabled={isSaving}
-                            className="rounded-depth-md border border-depth bg-depth-interactive px-5 py-2 text-sm font-semibold text-depth-primary"
+                            className="rounded-depth-md border border-depth bg-depth-interactive px-5 py-2 text-sm font-semibold"
                         >
                             Batal
                         </button>
