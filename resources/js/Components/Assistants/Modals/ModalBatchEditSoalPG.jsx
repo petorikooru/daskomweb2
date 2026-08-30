@@ -71,7 +71,7 @@ const createDrafts = (dataset) => extractQuestions(dataset).map((question) => {
 
     return {
         id: question?.id ?? null,
-        pertanyaan: setDifficultyInMarkdown(pertanyaan, difficulty),
+        pertanyaan: pertanyaan.replace(/^\s*Kesulitan\s*:\s*(easy|medium|hard)\s*\n?/im, "").replace(/^\n+/, ""),
         options,
         correctIndex,
         difficulty,
@@ -107,7 +107,6 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
 
     const handleDifficulty = (difficulty) => onPatch({
         difficulty,
-        pertanyaan: setDifficultyInMarkdown(item.pertanyaan, difficulty),
     });
 
     return (
@@ -123,7 +122,7 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
                 </div>
 
                 <div className="flex gap-2">
-                    <button type="button" onClick={onCopy} disabled={!item.pertanyaan.trim() || isSaving} className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40">{side === "ID" ? "Copy → EN" : "← Copy to ID"}</button>
+                    <button type="button" onClick={onCopy} disabled={!item.pertanyaan.trim() || isSaving} className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40">{side === "ID" ? "Copy to EN" : "Copy to ID"}</button>
                     <button type="button" onClick={() => onPatch({ _deleted: true })} disabled={isSaving} className="rounded-depth-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-400">Hapus</button>
                 </div>
             </div>
@@ -154,7 +153,6 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
                     <textarea
                         value={item.pertanyaan}
                         onChange={(e) => {
-                            const pertanyaan = e.target.value;
                             onPatch({ pertanyaan, difficulty: getDifficultyFromMarkdown(pertanyaan) });
                         }}
                         spellCheck={false}
@@ -201,7 +199,7 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
 }
 
 export default function ModalBatchEditSoalPG({
-    title = "Batch Edit Soal PG — ID / EN",
+    title = "Compare Soal PG — ID / EN",
     regularModules = [],
     englishModules = [],
     selectedRegularModuleId = "",
