@@ -7,7 +7,7 @@ export default function Modal({ isOpen, onClose, children, width = 'w-full' }) {
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className={`relative bg-softGray rounded-lg p-6 ${width} max-w-5xl mx-4 sm:mx-8`}>
+            <div className={`relative bg-depth-gradient rounded-lg p-6 ${width} max-w-5xl mx-4 sm:mx-8`}>
                 <ModalCloseButton
                     onClick={onClose}
                     ariaLabel="Tutup modal"
