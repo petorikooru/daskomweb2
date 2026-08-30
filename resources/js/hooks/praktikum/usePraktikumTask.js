@@ -30,8 +30,14 @@ const pg = (items) => (items ?? [])
         id: x.id,
         key: `pg:${x.id}`,
         text: x.pertanyaan,
+        difficulty: x.difficulty ?? null,
         questionType: "multiple-choice",
-        options: (x.options ?? []).filter((o) => o?.id != null).map((o) => ({ id: o.id, text: o.text ?? "" })),
+        options: (x.options ?? [])
+            .filter((o) => o?.id != null)
+            .map((o) => ({
+                id: o.id,
+                text: o.text ?? "",
+            })),
     }))
     .filter((x) => x.options.length);
 

@@ -1269,7 +1269,7 @@ export default function SoalInputPG({
                                                             Pilihan Jawaban
                                                         </span>
 
-                                                        <ul className="space-y-2">
+                                                        <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                                             {normalizeOptionsForDisplay(soalItem)
                                                                 .map((option, optionIndex) => {
                                                                     const isCorrect = isOptionCorrect(soalItem, option, optionIndex);

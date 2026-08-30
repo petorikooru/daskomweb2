@@ -353,6 +353,7 @@ class SoalTAController extends Controller
         return [
             'id' => $soal->id,
             'pertanyaan' => $soal->pertanyaan,
+            'difficulty' => $soal->difficulty,
             'modul_id' => $soal->modul_id,
             'options' => $options,
         ];
