@@ -104,7 +104,6 @@ export default function Jurnal({
                             <div key={q.key ?? `${q.questionType}:${q.id ?? index}`} data-question-index={index} onClick={() => setActive(index)} onFocusCapture={() => setActive(index)} className="rounded-depth-lg border border-depth bg-depth-interactive p-4 shadow-depth-md">
                                 <div className="mb-3 flex items-center gap-2">
                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-depth-full bg-[var(--depth-color-primary)] text-xs font-bold text-white">{index + 1}</span>
-                                    <span className="rounded-depth-md border border-depth bg-depth-card px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-depth-secondary">{isFitb ? "FITB" : "Jurnal"}</span>
                                 </div>
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="min-w-0">
@@ -132,7 +131,7 @@ export default function Jurnal({
                                             }} />
                                         </div>
                                     ) : (
-                                        <textarea value={answers[index] ?? ""} onChange={(e) => update(index, e.target.value)} onFocus={() => setActive(index)} placeholder="Masukkan jawaban di sini..." className="min-h-40 w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 text-sm text-depth-primary shadow-depth-inset focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]" />
+                                        <textarea value={answers[index] ?? ""} onChange={(e) => update(index, e.target.value)} onFocus={() => setActive(index)} placeholder="Masukkan jawaban di sini..." className="min-h-40 w-full resize-y font-mono rounded-depth-md border border-depth bg-depth-card p-3 text-sm text-depth-primary shadow-depth-inset focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]" />
                                     )}
                                 </div>
                             </div>

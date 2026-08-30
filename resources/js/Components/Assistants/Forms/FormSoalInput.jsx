@@ -72,7 +72,7 @@ function SoalNavigator({ count, active, onChange }) {
                 disabled={!active}
                 className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold text-depth-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-                ← <span className="hidden sm:inline">Previous</span>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /> </svg>
             </button>
 
             <div
@@ -116,7 +116,7 @@ function SoalNavigator({ count, active, onChange }) {
                 disabled={active >= count - 1}
                 className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold text-depth-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-                <span className="hidden sm:inline">Next</span> →
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /> </svg>
             </button>
         </div>
     );

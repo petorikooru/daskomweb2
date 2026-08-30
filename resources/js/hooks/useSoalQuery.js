@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-export const soalQueryKey = (kategori, modul) => ["soal", kategori, modul];
+export const soalQueryKey = (kategori, modul) => [ "soal", kategori, modul == null ? "" : String(modul), ];
 
 export const useSoalQuery = (kategori, modul, options = {}) =>
     useQuery({

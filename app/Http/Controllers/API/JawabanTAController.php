@@ -10,6 +10,7 @@ use App\Models\SoalTa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use App\Services\Praktikum\DifficultyQuestionRandomizer;
 
@@ -22,33 +23,63 @@ class JawabanTAController extends Controller
     public function showAsisten(int $praktikanId, int $modulId): JsonResponse
     {
         try {
-            $jawaban = JawabanTa::with(['soal_ta.options'])
+            $cache = Cache::store((string) config('cache.snapshot_store', 'redis'));
+
+            $snapshotKey = "autosave_snapshot:{$praktikanId}:{$modulId}:ta_questions";
+            $snapshot = $cache->get($snapshotKey);
+            $questionIds = collect($snapshot['question_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            $jawaban = JawabanTa::with('soal_ta')
                 ->where('praktikan_id', $praktikanId)
                 ->where('modul_id', $modulId)
-                ->get();
+                ->get()
+                ->keyBy('soal_id');
 
-            $data = $jawaban
-                ->map(function (JawabanTa $item) {
-                    $soal = $item->soal_ta;
-                    $options = $soal?->options
-                        ? $soal->options
-                            ->map(fn (SoalOpsi $opsi) => [
-                                'id' => $opsi->id,
-                                'text' => $opsi->text,
-                                'is_correct' => $opsi->id === $soal->opsi_benar_id,
-                            ])
-                            ->values()
-                            ->all()
-                        : [];
+            if ($questionIds->isEmpty()) {
+                $questionIds = $jawaban
+                    ->keys()
+                    ->map(fn ($id) => (int) $id)
+                    ->values();
+            }
+
+            $soals = SoalTa::with('options')
+                ->where('modul_id', $modulId)
+                ->whereIn('id', $questionIds)
+                ->get()
+                ->keyBy('id');
+
+            $data = $questionIds
+                ->map(function (int $questionId) use ($soals, $jawaban) {
+                    $soal = $soals->get($questionId);
+
+                    if (! $soal) {
+                        return null;
+                    }
+
+                    $item = $jawaban->get($questionId);
+
+                    $options = $soal->options
+                        ->map(fn (SoalOpsi $opsi) => [
+                            'id' => $opsi->id,
+                            'text' => $opsi->text,
+                            'is_correct' => $opsi->id === $soal->opsi_benar_id,
+                        ])
+                        ->values()
+                        ->all();
 
                     return [
-                        'soal_id' => $item->soal_id,
-                        'pertanyaan' => $soal?->pertanyaan,
-                        'selected_opsi_id' => $item->opsi_id,
-                        'opsi_benar_id' => $soal?->opsi_benar_id,
+                        'soal_id' => $soal->id,
+                        'pertanyaan' => $soal->pertanyaan,
+                        'selected_opsi_id' => $item?->opsi_id,
+                        'opsi_benar_id' => $soal->opsi_benar_id,
                         'options' => $options,
                     ];
                 })
+                ->filter()
                 ->values();
 
             return response()->json([

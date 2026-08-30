@@ -8,6 +8,7 @@ import { store as storeNilai, update as updateNilai } from "@/lib/routes/nilai";
 import { ModalOverlay } from "@/Components/Common/ModalPortal";
 import ModalCloseButton from "@/Components/Common/ModalCloseButton";
 import MarkdownRenderer from "../../MarkdownRenderer";
+import PairNavigator from "./PairNavigator.jsx"
 
 const SCORES = [
     ["tp", "TP"], ["ta", "TA"], ["d1", "D1"], ["d2", "D2"],
@@ -72,11 +73,12 @@ const parseAttachment = (entry) => {
 };
 
 const normalize = (type, item, index) => {
-    const attachment = type === "fitb" ? parseAttachment(item) : null;
+    const supportsAttachment = ["tp", "jurnal", "fitb"].includes(type);
+    const attachment = supportsAttachment ? parseAttachment(item) : null;
     const pg = type === "ta" || type === "tk";
 
     return {
-        soalId: item.soal_id ?? index,
+        soalId: item.soal_id ?? item.soal_id ?? index,
         question: item.soal_text ?? item.pertanyaan ?? "Soal tidak tersedia",
         answer: pg
             ? null
@@ -141,65 +143,28 @@ async function fetchAutoScore(type, praktikanId, modulId) {
     );
 
     const items = Array.isArray(data?.[key]) ? data[key] : [];
-    if (!items.length) return { score: 0, hasAnswers: false };
 
-    const correct = items.filter(
+    if (!items.length) return { score: 0, hasAnswers: false, answered: 0, total: 0 };
+
+    const answered = items.filter(
         (x) =>
-            x.selected_opsi_id &&
-            x.selected_opsi_id === x.opsi_benar_id,
+            x.selected_opsi_id !== null &&
+            x.selected_opsi_id !== undefined &&
+            x.selected_opsi_id !== "",
+    );
+
+    const correct = answered.filter(
+        (x) =>
+            String(x.selected_opsi_id) ===
+            String(x.opsi_benar_id),
     ).length;
 
     return {
         score: Math.round((correct / items.length) * 10000) / 100,
-        hasAnswers: true,
+        hasAnswers: answered.length > 0,
+        answered: answered.length,
+        total: items.length,
     };
-}
-
-function QuestionNav({ count, active, onChange }) {
-    if (!count) return null;
-
-    return (
-        <div className="flex items-center gap-2 rounded-depth-md border border-depth bg-depth-card p-2 shadow-depth-md">
-            <button
-                type="button"
-                disabled={!active}
-                onClick={() => onChange(active - 1)}
-                className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold disabled:opacity-40"
-            >
-                ← <span className="hidden sm:inline">Previous</span>
-            </button>
-
-            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-                {Array.from({ length: count }, (_, i) => (
-                    <button
-                        key={i}
-                        type="button"
-                        onClick={() => onChange(i)}
-                        className={`h-8 min-w-8 shrink-0 rounded-depth-md border px-2 text-xs font-semibold ${
-                            active === i
-                                ? "border-[var(--depth-color-primary)] bg-[var(--depth-color-primary)] text-white"
-                                : "border-depth bg-depth-interactive text-depth-secondary"
-                        }`}
-                    >
-                        {i + 1}
-                    </button>
-                ))}
-            </div>
-
-            <span className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold">
-                {active + 1} / {count}
-            </span>
-
-            <button
-                type="button"
-                disabled={active >= count - 1}
-                onClick={() => onChange(active + 1)}
-                className="shrink-0 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-xs font-semibold disabled:opacity-40"
-            >
-                <span className="hidden sm:inline">Next</span> →
-            </button>
-        </div>
-    );
 }
 
 export default function ModalInputNilai({
@@ -411,6 +376,9 @@ export default function ModalInputNilai({
             .finally(() => setIsSaving(false));
     };
 
+    const currentAutoScore =
+        activeTab === "ta" ? taScore : activeTab === "tk" ? tkScore : null;
+
     return (
         <ModalOverlay
             onClose={onClose}
@@ -562,7 +530,7 @@ export default function ModalInputNilai({
                                 <div className="space-y-4">
                                     {/* Sticky question navbar */}
                                     <div className="sticky top-0 z-20 pb-2">
-                                        <QuestionNav
+                                        <PairNavigator
                                             count={questions.length}
                                             active={activeQuestion}
                                             onChange={goToQuestion}
@@ -578,6 +546,9 @@ export default function ModalInputNilai({
                                         const hasAnswer =
                                             answer.trim() &&
                                             answer.trim() !== "-";
+                                        const isUnanswered =
+                                            hasOptions &&
+                                            !item.selectedOptionId;
 
                                         return (
                                             <article
@@ -586,7 +557,15 @@ export default function ModalInputNilai({
                                                 className="rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-sm"
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <span className="flex h-7 min-w-7 items-center justify-center rounded-depth-full bg-[var(--depth-color-primary)] text-xs font-bold text-white">
+                                                    <span
+                                                        className={`flex h-7 min-w-7 items-center justify-center rounded-depth-full text-xs font-bold text-white ${
+                                                            isUnanswered
+                                                                ? "bg-amber-500"
+                                                                : String(item.selectedOptionId) !== String(item.correctOptionId)
+                                                                    ? "bg-red-500"
+                                                                    : "bg-[var(--depth-color-primary)]"
+                                                        }`}
+                                                    >
                                                         {index + 1}
                                                     </span>
 
@@ -595,6 +574,22 @@ export default function ModalInputNilai({
                                                             content={item.question}
                                                             className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                                                         />
+
+                                                        {isUnanswered && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-400">
+                                                                Tidak Dijawab
+                                                            </div>
+                                                        )}
+                                                        {String(item.selectedOptionId) !== String(item.correctOptionId) && !isUnanswered && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-500">
+                                                                Jawaban Salah
+                                                            </div>
+                                                        )}
+                                                        {String(item.selectedOptionId) === String(item.correctOptionId) && (
+                                                            <div className="mt-2 inline-flex rounded-depth-full border border-[#4c7a4c]/40 bg-[var(--depth-color-primary)]/10 px-2.5 py-1 text-xs font-semibold bg-[var(--depth-color-primary)]">
+                                                                Jawaban Benar
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -677,17 +672,13 @@ export default function ModalInputNilai({
                                                                     item.attachmentUrl,
                                                                 ) ? (
                                                                     <img
-                                                                        src={
-                                                                            item.attachmentUrl
-                                                                        }
+                                                                        src={item.attachmentUrl}
                                                                         alt="Lampiran jawaban"
                                                                         className="max-h-72 w-full rounded-depth-md object-contain"
                                                                     />
                                                                 ) : (
                                                                     <a
-                                                                        href={
-                                                                            item.attachmentUrl
-                                                                        }
+                                                                        href={item.attachmentUrl}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="font-semibold text-[var(--depth-color-primary)] hover:underline"
