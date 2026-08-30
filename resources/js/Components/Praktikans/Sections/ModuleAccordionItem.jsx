@@ -1,23 +1,243 @@
 import iconPPT from "../../../../assets/practicum/iconPPT.svg";
 import iconVideo from "../../../../assets/practicum/iconVideo.svg";
 import iconModule from "../../../../assets/practicum/iconModule.svg";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
 
-const ResourceLink = ({ href, icon, label, tone }) => {
+import MarkdownRenderer from "@/Components/MarkdownRenderer";
+
+function Icon({ name, size = 16 }) {
+    const props = {
+        width: size,
+        height: size,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: 1.8,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        "aria-hidden": true,
+    };
+
+    const icons = {
+        down: <path d="m6 9 6 6 6-6" />,
+        up: <path d="m18 15-6-6-6 6" />,
+        lock: (
+            <>
+                <rect x="5" y="10" width="14" height="10" rx="2"/>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                <path d="M12 14v2" />
+            </>
+        ),
+        unlock: (
+            <>
+                <rect x="5" y="10" width="14" height="10" rx="2"/>
+                <path d="M8 10V7a4 4 0 0 1 7.5-2" />
+                <path d="M12 14v2" />
+            </>
+        ),
+    };
+
+    return <svg {...props}>{icons[name]}</svg>;
+}
+
+const normalizeBooleanFlag = (value) => {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    if (typeof value === "number") {
+        return value === 1;
+    }
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        return (
+            normalized === "1" ||
+            normalized === "true"
+        );
+    }
+
+    return false;
+};
+
+export default function ModuleAccordionItem({
+    module,
+    index,
+    isOpen,
+    onToggle,
+}) {
+    const unlocked = normalizeBooleanFlag(module?.isUnlocked);
+    const english = normalizeBooleanFlag(module?.isEnglish);
+    const moduleTitle =
+        module?.judul ||
+        module?.title ||
+        `Modul ${index + 1}`;
+
+    return (
+        <article
+            className={`relative ${
+                isOpen
+                    ? "bg-depth-interactive/20"
+                    : "hover:bg-depth-interactive/40"
+            }`}
+        >
+            {/* Header */}
+            <div className={`sticky top-0 z-30 border-b border-depth bg-depth-card`}>
+                <div className="flex items-center gap-3 px-4 py-3 md:px-5">
+                    {/* Module Information */}
+                    <button
+                        type="button"
+                        onClick={() => onToggle(index)}
+                        className="min-w-0 flex-1 text-left"
+                    >
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div
+                                className={`inline-flex shrink-0 items-center gap-1.5 rounded-depth-full border px-2.5 py-1 ${
+                                    unlocked
+                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                        : "border-red-500/30 bg-red-500/10 text-red-400"
+                                }`}
+                            >
+                                <Icon
+                                    name={unlocked ? "unlock" : "lock"}
+                                    size={14}
+                                />
+
+                                <span className="text-[11px] font-semibold">
+                                    {unlocked ? "Terbuka" : "Terkunci"}
+                                </span>
+                            </div>
+
+                            <h3 className="truncate text-sm font-semibold text-depth-primary md:text-base">
+                                {moduleTitle}
+                            </h3>
+
+                            {english && (
+                                <span className="hidden shrink-0 rounded-depth-full border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400 sm:inline-flex">
+                                    ENGLISH
+                                </span>
+                            )}
+                        </div>
+                    </button>
+
+                    {/* Toggle */}
+                    <button
+                        type="button"
+                        onClick={() => onToggle(index)}
+                        aria-label={isOpen ? "Tutup modul" : "Buka modul"}
+                        className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-depth-md text-depth-secondary transition hover:bg-depth-interactive hover:text-depth-primary"
+                    >
+                        <Icon name={ isOpen ? "up" : "down" } size={17}/>
+                    </button>
+                </div>
+            </div>
+
+            {/* Content */}
+            {isOpen && (
+                <div className="px-4 pb-6 pt-4 md:px-5">
+                    {unlocked ? (
+                        <ModuleContent module={module}/>
+                    ) : (
+                        <LockedModule title={moduleTitle}/>
+                    )}
+                </div>
+            )}
+        </article>
+    );
+}
+
+function ModuleContent({ module }) {
+    return (
+        <div className="space-y-5">
+            <section>
+                <SectionLabel>
+                    Pencapaian Pembelajaran
+                </SectionLabel>
+
+                <div className="rounded-depth-md border border-depth bg-depth-interactive/20 p-4 md:p-5">
+                    {module?.deskripsi ? (
+                        <MarkdownRenderer
+                            content={module.deskripsi}
+                        />
+                    ) : (
+                        <p className="text-sm italic text-depth-secondary">
+                            Belum ada poin pembelajaran.
+                        </p>
+                    )}
+                </div>
+            </section>
+
+            {/* Learning Resources */}
+            <section>
+                <SectionLabel>
+                    Sumber Pembelajaran
+                </SectionLabel>
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                    <ResourceLink
+                        href={module?.ppt_link}
+                        icon={iconPPT}
+                        label="PPT"
+                        tone="green"
+                    />
+
+                    <ResourceLink
+                        href={module?.video_link}
+                        icon={iconVideo}
+                        label="Video"
+                        tone="red"
+                    />
+
+                    <ResourceLink
+                        href={module?.modul_link}
+                        icon={iconModule}
+                        label="Modul"
+                        tone="blue"
+                    />
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function LockedModule({ title }) {
+    return (
+        <div className="rounded-depth-lg border border-depth bg-depth-card px-5 py-7 text-center shadow-depth-sm">
+            <div className="mb-2 flex items-center justify-center gap-2 text-depth-primary">
+                <Icon
+                    name="lock"
+                    size={18}
+                />
+
+                <span className="font-semibold">
+                    {title}
+                </span>
+            </div>
+
+            <p className="text-sm text-depth-secondary">
+                Modul ini masih terkunci.
+                Silakan kembali lagi setelah
+                modul dibuka.
+            </p>
+        </div>
+    );
+}
+
+function ResourceLink({
+    href,
+    icon,
+    label,
+    tone,
+}) {
     if (!href) {
         return (
-            <span className="rounded-depth-md border border-depth bg-depth-card px-3 py-2 text-sm text-depth-secondary shadow-depth-sm">
+            <span className="rounded-depth-md border border-depth bg-depth-interactive/30 px-3 py-2 text-sm text-depth-secondary">
                 {label} belum tersedia
             </span>
         );
     }
 
-    const toneBadge = {
-        green: "bg-green-500/15 text-green-400",
-        red: "bg-red-500/15 text-red-400",
-        blue: "bg-blue-500/15 text-blue-400",
+    const toneClass = {
+        green: "bg-green-500/10 text-green-400",
+        red: "bg-red-500/10 text-red-400",
+        blue: "bg-blue-500/10 text-blue-400",
     }[tone];
 
     return (
@@ -25,112 +245,20 @@ const ResourceLink = ({ href, icon, label, tone }) => {
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-depth-md border border-depth bg-depth-card px-3 py-2 text-sm font-semibold text-depth-primary shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
+            className="inline-flex items-center gap-2 rounded-depth-md border border-depth bg-depth-interactive px-3 py-2 text-sm font-semibold text-depth-primary shadow-depth-sm transition hover:-translate-y-0.5 hover:shadow-depth-md"
         >
-            <span className={`flex h-6 w-6 items-center justify-center rounded-depth-full ${toneBadge}`}>
-                <img className="h-4 w-4" src={icon} alt={label} />
+            <span className={`flex h-7 w-7 items-center justify-center rounded-depth-full ${toneClass}`}>
+                <img src={icon} alt="" className="h-4 w-4"/>
             </span>
             {label}
         </a>
     );
-};
+}
 
-const LockedModuleSummary = ({ title }) => (
-    <div className="rounded-depth-md border border-depth bg-depth-card px-4 py-6 text-center text-sm text-depth-secondary shadow-depth-sm">
-        <div className="mb-2 flex items-center justify-center gap-2 text-depth-primary">
-            <span className="text-lg">🔒</span>
-            <span className="font-semibold">{title}</span>
-        </div>
-        <p>Modul ini belum dibuka. Silakan periksa kembali setelah sesi dibuka oleh asisten.</p>
-    </div>
-);
-
-export default function ModuleAccordionItem({ module, index, isOpen, onToggle }) {
-    const isUnlocked = module?.isUnlocked !== 0;
-    const moduleTitle = module?.judul ?? module?.title ?? `Modul #${module?.idM ?? module?.id ?? index + 1}`;
-
+function SectionLabel({ children }) {
     return (
-        <li className="transition hover:bg-depth-interactive/60">
-            <button
-                type="button"
-                onClick={() => onToggle(index)}
-                className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left"
-            >
-                <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-depth-primary">{moduleTitle}</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                    {!isUnlocked && (
-                        <span className="rounded-depth-full border border-depth bg-depth-interactive px-2 py-1 text-xs text-depth-secondary">
-                            🔒
-                        </span>
-                    )}
-                    {Number(module?.isEnglish ?? 0) === 1 && (
-                        <span className="rounded-depth-full border border-depth bg-depth-interactive px-3 py-1 text-xs font-semibold text-depth-primary">
-                            English
-                        </span>
-                    )}
-                    <span className="text-depth-secondary">{isOpen ? "▲" : "▼"}</span>
-                </div>
-            </button>
-
-            {isOpen && (
-                <div className="space-y-6 px-6 pb-6">
-                    {isUnlocked ? (
-                        <>
-                            <div className="space-y-3">
-                                <h4 className="text-sm font-semibold uppercase tracking-wide text-depth-secondary">
-                                    Pencapaian Pembelajaran
-                                </h4>
-                                <div className="rounded-depth-md border border-depth bg-depth-card p-4 text-sm text-depth-primary shadow-depth-sm prose prose-invert max-w-none">
-                                    {module?.deskripsi ? (
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm, remarkBreaks]}
-                                            components={{
-                                                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 mt-4">{children}</h1>,
-                                                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-3">{children}</h2>,
-                                                h3: ({ children }) => <h3 className="text-base font-bold mb-2 mt-2">{children}</h3>,
-                                                p: ({ children }) => <p className="mb-3">{children}</p>,
-                                                ul: ({ children }) => <ul className="list-disc list-inside mb-3 ml-2">{children}</ul>,
-                                                ol: ({ children }) => <ol className="list-decimal list-inside mb-3 ml-2">{children}</ol>,
-                                                li: ({ children }) => <li className="mb-1">{children}</li>,
-                                                blockquote: ({ children }) => <blockquote className="border-l-4 border-[var(--depth-color-primary)] pl-4 py-2 italic my-3">{children}</blockquote>,
-                                                code: ({ inline, children }) => inline ? (
-                                                    <code className="bg-depth-interactive px-1.5 py-0.5 rounded text-sm border border-depth">{children}</code>
-                                                ) : (
-                                                    <code className="block bg-depth-interactive p-3 rounded my-3 text-xs overflow-x-auto">{children}</code>
-                                                ),
-                                                a: ({ href, children }) => (
-                                                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--depth-color-primary)] hover:underline">{children}</a>
-                                                ),
-                                                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                                                em: ({ children }) => <em className="italic">{children}</em>,
-                                            }}
-                                        >
-                                            {module.deskripsi}
-                                        </ReactMarkdown>
-                                    ) : (
-                                        <p className="italic text-depth-secondary">Belum ada deskripsi modul.</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <h5 className="text-sm font-semibold uppercase tracking-wide text-depth-secondary">
-                                    Sumber Pembelajaran
-                                </h5>
-                                <div className="grid gap-2 md:grid-cols-3">
-                                    <ResourceLink href={module?.ppt_link} icon={iconPPT} label="PPT" tone="green" />
-                                    <ResourceLink href={module?.video_link} icon={iconVideo} label="Video" tone="red" />
-                                    <ResourceLink href={module?.modul_link} icon={iconModule} label="Modul" tone="blue" />
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <LockedModuleSummary title={moduleTitle} />
-                    )}
-                </div>
-            )}
-        </li>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-depth-secondary">
+            {children}
+        </p>
     );
 }

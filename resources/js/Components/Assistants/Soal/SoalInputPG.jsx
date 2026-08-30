@@ -9,6 +9,7 @@ import trashIcon from "../../../../assets/nav/Icon-Delete.svg";
 import editIcon from "../../../../assets/nav/Icon-Edit.svg";
 import toast from "react-hot-toast";
 import ModalBatchEditSoalPG from "../Modals/ModalBatchEditSoalPG";
+import ModalLegacyBatchEditSoal from "../Modals/ModalLegacyBatchEditSoal";
 import ModalAnalyzeSoalPG from "../Modals/ModalAnalyzeSoalPG";
 import SoalCommentsButton from "./SoalCommentsButton";
 import SoalPGEditor from "./SoalPGEditor";
@@ -289,6 +290,7 @@ export default function SoalInputPG({ kategoriSoal, modul, modules = [], onModal
 
                 continue;
             }
+        }
 
             if (!deleted) {
                 await send(controller.store(targetModulId), {
