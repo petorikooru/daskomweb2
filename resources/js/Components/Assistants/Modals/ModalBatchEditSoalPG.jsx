@@ -6,21 +6,28 @@ import PairNavigator from "./PairNavigator";
 
 const OPTION_COUNT = 4;
 const LABELS = ["A", "B", "C", "D"];
+const DIFFICULTIES = ["easy", "medium", "hard"];
+
 const getModuleId = (item) => {
     const value = item?.idM ?? item?.id ?? item?.value ?? item?.uuid ?? item?.ID;
     return value == null ? "" : String(value);
 };
+
 const getModuleLabel = (item) => item?.judul ?? item?.nama ?? item?.nama_modul ?? item?.label ?? `Modul ${getModuleId(item)}`;
+
 const extractQuestions = (dataset) => {
     if (Array.isArray(dataset)) return dataset;
     return [dataset?.soal, dataset?.questions, dataset?.items, dataset?.data, dataset?.data?.soal, dataset?.data?.questions, dataset?.data?.items, dataset?.data?.data].find(Array.isArray) ?? [];
 };
+
 const isCorrect = (question, option, index) => {
     if (typeof option?.is_correct === "boolean") return option.is_correct;
     if (option?.id && question?.opsi_benar_id) return option.id === question.opsi_benar_id;
     return question?.correct_option === index;
 };
+
 const emptyOptions = () => Array.from({ length: OPTION_COUNT }, () => ({ id: null, text: "", is_correct: false }));
+
 const emptyDraft = () => ({
     id: null,
     pertanyaan: "",
@@ -33,20 +40,38 @@ const emptyDraft = () => ({
     originalDifficulty: "",
     _deleted: false,
 });
+
+const getDifficultyFromMarkdown = (text) => {
+    const match = String(text ?? "").match(/^\s*Kesulitan\s*:\s*(easy|medium|hard)\s*$/im);
+    return match?.[1] ?? "";
+};
+
+const setDifficultyInMarkdown = (text, difficulty) => {
+    const source = String(text ?? "");
+    const pattern = /^\s*Kesulitan\s*:\s*(easy|medium|hard)\s*\n?/im;
+
+    if (!difficulty) return source.replace(pattern, "").replace(/^\n+/, "");
+
+    const line = `Kesulitan: ${difficulty}`;
+    return pattern.test(source) ? source.replace(pattern, `${line}\n`) : `${line}\n\n${source}`;
+};
+
 const normalizeOptions = (question) => {
     const result = (question?.options ?? []).map((option) => ({ id: option?.id ?? null, text: option?.text ?? "", is_correct: option?.is_correct }));
     while (result.length < OPTION_COUNT) result.push({ id: null, text: "", is_correct: false });
     return result.slice(0, OPTION_COUNT);
 };
+
 const createDrafts = (dataset) => extractQuestions(dataset).map((question) => {
     const options = normalizeOptions(question);
     const found = options.findIndex((option, index) => isCorrect(question, option, index));
     const correctIndex = found >= 0 ? found : typeof question?.correct_option === "number" ? question.correct_option : 0;
     const pertanyaan = question?.pertanyaan ?? question?.soal ?? "";
-    const difficulty = question?.difficulty ?? "";
+    const difficulty = question?.difficulty ?? getDifficultyFromMarkdown(pertanyaan);
+
     return {
         id: question?.id ?? null,
-        pertanyaan,
+        pertanyaan: setDifficultyInMarkdown(pertanyaan, difficulty),
         options,
         correctIndex,
         difficulty,
@@ -57,6 +82,7 @@ const createDrafts = (dataset) => extractQuestions(dataset).map((question) => {
         _deleted: false,
     };
 });
+
 const activeCount = (items) => items.filter((item) => !item?._deleted && String(item?.pertanyaan ?? "").trim()).length;
 
 function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOption, onCreate, onCopy }) {
@@ -79,6 +105,11 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
         );
     }
 
+    const handleDifficulty = (difficulty) => onPatch({
+        difficulty,
+        pertanyaan: setDifficultyInMarkdown(item.pertanyaan, difficulty),
+    });
+
     return (
         <div className="space-y-4 rounded-depth-lg border border-depth bg-depth-card p-4 shadow-depth-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -90,6 +121,7 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
                         <span className="rounded-depth-full border border-depth bg-depth-interactive px-2 py-0.5 text-[10px] font-semibold capitalize text-depth-secondary">{item.difficulty}</span>
                     )}
                 </div>
+
                 <div className="flex gap-2">
                     <button type="button" onClick={onCopy} disabled={!item.pertanyaan.trim() || isSaving} className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40">{side === "ID" ? "Copy → EN" : "← Copy to ID"}</button>
                     <button type="button" onClick={() => onPatch({ _deleted: true })} disabled={isSaving} className="rounded-depth-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-400">Hapus</button>
@@ -98,27 +130,40 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
 
             {supportsDifficulty && (
                 <div className="max-w-xs">
-                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">Difficulty</label>
-                        <select
-                            value={item.difficulty ?? ""}
-                            onChange={(e) => onPatch({ difficulty: e.target.value })}
-                            disabled={isSaving}
-                            style={{ backgroundColor: "color-mix(in srgb, var(--depth-color-card) 65%, black 35%)" }}
-                            className="w-full rounded-depth-md border border-depth px-3 py-2 text-sm font-semibold text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)] disabled:opacity-50"
-                        >
-                            <option value="" style={{ backgroundColor: "#181b20", color: "white" }}>Pilih difficulty...</option>
-                            <option value="easy" style={{ backgroundColor: "#181b20", color: "white" }}>Easy</option>
-                            <option value="medium" style={{ backgroundColor: "#181b20", color: "white" }}>Medium</option>
-                            <option value="hard" style={{ backgroundColor: "#181b20", color: "white" }}>Hard</option>
-                        </select>
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">Kesulitan</label>
+                    <select
+                        value={item.difficulty ?? ""}
+                        onChange={(e) => handleDifficulty(e.target.value)}
+                        disabled={isSaving}
+                        style={{ backgroundColor: "color-mix(in srgb, var(--depth-color-card) 65%, black 35%)" }}
+                        className="w-full rounded-depth-md border border-depth px-3 py-2 text-sm font-semibold text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)] disabled:opacity-50"
+                    >
+                        <option value="" style={{ backgroundColor: "#181b20", color: "white" }}>Pilih kesulitan...</option>
+                        {DIFFICULTIES.map((difficulty) => (
+                            <option key={difficulty} value={difficulty} style={{ backgroundColor: "#181b20", color: "white" }}>
+                                {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                            </option>
+                        ))}
+                    </select>
                 </div>
             )}
 
             <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                 <div>
                     <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">Pertanyaan Markdown</label>
-                    <textarea value={item.pertanyaan} onChange={(e) => onPatch({ pertanyaan: e.target.value })} spellCheck={false} rows={5} disabled={isSaving} className="min-h-[120px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 font-mono text-sm leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]" />
+                    <textarea
+                        value={item.pertanyaan}
+                        onChange={(e) => {
+                            const pertanyaan = e.target.value;
+                            onPatch({ pertanyaan, difficulty: getDifficultyFromMarkdown(pertanyaan) });
+                        }}
+                        spellCheck={false}
+                        rows={5}
+                        disabled={isSaving}
+                        className="min-h-[120px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-3 font-mono text-sm leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]"
+                    />
                 </div>
+
                 <div>
                     <div className="mb-1.5 flex justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-depth-secondary">Preview</span>
@@ -133,12 +178,14 @@ function PGCard({ item, index, side, isSaving, supportsDifficulty, onPatch, onOp
             <div className="space-y-2">
                 {item.options.map((option, optionIndex) => {
                     const correct = item.correctIndex === optionIndex;
+
                     return (
                         <div key={option.id ?? optionIndex} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-depth-md border p-3 ${correct ? "border-[var(--depth-color-primary)]" : "border-depth"}`}>
                             <div className="flex items-start gap-2 pt-2">
                                 <input type="radio" name={`correct-${side}-${index}`} checked={correct} onChange={() => onPatch({ correctIndex: optionIndex })} disabled={isSaving} className="mt-1 h-4 w-4 accent-[var(--depth-color-primary)]" />
                                 <span className={`flex h-7 w-7 items-center justify-center rounded-depth-md text-xs font-bold ${correct ? "bg-[var(--depth-color-primary)] text-white" : "border border-depth bg-depth-interactive text-depth-secondary"}`}>{LABELS[optionIndex]}</span>
                             </div>
+
                             <div className="grid min-w-0 grid-cols-1 gap-2 2xl:grid-cols-2">
                                 <textarea value={option.text} onChange={(e) => onOption(optionIndex, e.target.value)} spellCheck={false} rows={2} disabled={isSaving} className="min-h-[68px] w-full resize-y rounded-depth-md border border-depth bg-depth-card p-2.5 font-mono text-xs leading-relaxed text-depth-primary shadow-depth-inset focus:border-[var(--depth-color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--depth-color-primary)]" />
                                 <div className="min-h-[68px] max-h-[150px] overflow-auto rounded-depth-md border border-depth bg-depth-interactive p-2.5 text-sm shadow-depth-inset">
@@ -234,6 +281,7 @@ export default function ModalBatchEditSoalPG({
         setter((items) => {
             const next = [...items];
             while (next.length <= index) next.push(emptyDraft());
+
             const destination = next[index];
 
             next[index] = {
