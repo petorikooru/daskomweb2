@@ -24,6 +24,7 @@ use App\Http\Controllers\API\PraktikumController;
 use App\Http\Controllers\API\PraktikumProgressController;
 use App\Http\Controllers\API\RoleController;
 use App\Http\Controllers\API\SeeLabsProxyController;
+use App\Http\Controllers\API\QuestionRandomizationController;
 use App\Http\Controllers\API\SoalCommentController;
 use App\Http\Controllers\API\SoalFITBController;
 use App\Http\Controllers\API\SoalJurnalController;
@@ -365,6 +366,11 @@ Route::prefix('api-v1')->middleware(['audit.assistant', 'auth:asisten,praktikan'
     Route::get('/praktikum/{idKelas}', [PraktikumController::class, 'show'])->name('show.praktikums')->middleware(['auth:asisten', 'permission:manage-praktikum|see-praktikum']);
     Route::put('/praktikum/{id}', [PraktikumController::class, 'update'])->name('update.praktikums')->middleware(['auth:asisten', 'can:manage-praktikum']);
     Route::get('/praktikum/{praktikum}/progress', [PraktikumProgressController::class, 'show'])->name('praktikum.progress.show');
+
+    // acak soal
+    Route::get('/question-randomization/{category}/{modulId}', [QuestionRandomizationController::class, 'show']);
+    Route::put('/question-randomization/{category}/{modulId}', [QuestionRandomizationController::class, 'update']);
+    Route::patch('/question-difficulty/{category}/{questionId}', [QuestionRandomizationController::class, 'difficulty']);
 
     // tugas pendahuluan
     Route::get('/tugas-pendahuluan', [TugasPendahuluanController::class, 'index'])->name('index.tugaspendahuluans')->middleware(['auth:asisten,praktikan', 'permission:tugas-pendahuluan|lihat-modul|lms-configuration']);

@@ -12,10 +12,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
+use App\Services\Praktikum\DifficultyQuestionRandomizer;
 
 class JawabanTAController extends Controller
 {
     public function index(): void {}
+
+    public function __construct(private DifficultyQuestionRandomizer $randomizer) {}
 
     public function showAsisten(int $praktikanId, int $modulId): JsonResponse
     {
@@ -145,7 +148,12 @@ class JawabanTAController extends Controller
                 ->get();
 
             $correct = $jawaban->filter(fn (JawabanTa $item) => $item->opsi_id === $item->soal_ta?->opsi_benar_id)->count();
-            $totalQuestions = SoalTa::where('modul_id', $modulId)->count();
+            $totalQuestions = $this->randomizer->scoreTotal(
+                auth('praktikan')->user(),
+                $modulId,
+                'ta',
+                SoalTa::class
+            );
             $nilai = $totalQuestions > 0 ? round(($correct / $totalQuestions) * 100, 2) : 0;
 
             return response()->json([
@@ -177,7 +185,12 @@ class JawabanTAController extends Controller
         }
 
         try {
-            $totalQuestions = SoalTa::where('modul_id', $modulId)->count();
+            $totalQuestions = $this->randomizer->scoreTotal(
+                $praktikan,
+                $modulId,
+                'ta',
+                SoalTa::class
+            );
 
             if ($totalQuestions === 0) {
                 return response()->json([
