@@ -75,22 +75,6 @@ export default function ModalLegacyBatchEditSoal({
             <div className="depth-modal-container flex max-h-[90vh] flex-col overflow-hidden" style={{ "--depth-modal-max-width": "90rem" }}>
                 <div className="depth-modal-header">
                     <h2 className="depth-modal-title">{title}</h2>
-
-                    <div className="flex items-center gap-3">
-                        <p className="text-sm text-depth-secondary">Move into:</p>
-                        {!!normalizedModuleOptions.length && (
-                            <select
-                                value={selectedModuleId}
-                                onChange={(e) => setSelectedModuleId(e.target.value)}
-                                className="rounded-depth-md border border-depth bg-depth-card px-3 py-2 text-sm text-depth-primary"
-                            >
-                                {normalizedModuleOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
                     <ModalCloseButton onClick={onClose} ariaLabel="Tutup editor batch" />
                 </div>
 
