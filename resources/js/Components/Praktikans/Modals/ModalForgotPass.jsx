@@ -1,6 +1,6 @@
 import React from 'react';
 import { contactData } from '../../Common/ContactData';
-import iconLine from '../../../../assets/contact/iconLine.svg'; 
+import iconLine from '../../../../assets/contact/iconLine.svg';
 
 export default function ModalForgotPass() {
     const oaData = contactData.find(data => data.name === "Official Account (OA)");

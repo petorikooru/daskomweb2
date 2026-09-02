@@ -14,13 +14,13 @@ import mermaid from "mermaid";
 SyntaxHighlighter.registerLanguage("c", c);
 
 const parseMediaSize = (alt = "") => {
-    if (typeof alt !== "string") return { altText: "", width: null };
+    if (typeof alt !== "string")
+        return { altText: "", width: null };
 
-    const match = alt.match(
-        /^(.*?)\s*\|\s*(\d+(?:\.\d+)?)\s*(px|%)?\s*$/i,
-    );
+    const match = alt.match(/^(.*?)\s*\|\s*(\d+(?:\.\d+)?)\s*(px|%)?\s*$/i);
 
-    if (!match) return { altText: alt, width: null };
+    if (!match)
+        return { altText: alt, width: null };
 
     const altText = match[1].trim();
     const value = Number(match[2]);
@@ -43,8 +43,7 @@ const parseMediaSize = (alt = "") => {
  * GitHub Alerts
  * ============================================================ */
 
-const ALERT_PATTERN =
-    /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\r?\n)?/i;
+const ALERT_PATTERN = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\r?\n)?/i;
 
 const remarkGithubAlerts = () => (tree) => {
     const walk = (node) => {
@@ -68,12 +67,10 @@ const remarkGithubAlerts = () => (tree) => {
                     if (match) {
                         const type = match[1].toLowerCase();
 
-                        first.value = first.value.replace(
-                            ALERT_PATTERN,
-                            "",
-                        );
+                        first.value = first.value.replace(ALERT_PATTERN, "");
 
-                        if (!first.value) paragraph.children.shift();
+                        if (!first.value)
+                            paragraph.children.shift();
 
                         while (paragraph.children[0]?.type === "break")
                             paragraph.children.shift();
@@ -81,8 +78,7 @@ const remarkGithubAlerts = () => (tree) => {
                         if (!paragraph.children.length)
                             child.children.shift();
 
-                        const old =
-                            child.data?.hProperties?.className;
+                        const old = child.data?.hProperties?.className;
                         const classes = Array.isArray(old)
                             ? old
                             : old
@@ -141,24 +137,16 @@ function Mermaid({ chart }) {
                 console.error("Mermaid parsing error", error);
 
                 if (!cancelled && ref.current)
-                    ref.current.innerHTML =
-                        '<div class="text-red-500 text-sm border border-red-500 p-2 rounded">Failed to render Mermaid diagram</div>';
+                    ref.current.innerHTML = '<div class="text-red-500 text-sm border border-red-500 p-2 rounded">Failed to render Mermaid diagram</div>';
             }
         };
 
         render();
 
-        return () => {
-            cancelled = true;
-        };
+        return () => {cancelled = true;};
     }, [chart]);
 
-    return (
-        <div
-            ref={ref}
-            className="my-4 flex justify-center overflow-x-auto"
-        />
-    );
+    return (<div ref={ref} className="my-4 flex justify-center overflow-x-auto" />);
 }
 
 
@@ -176,8 +164,7 @@ function CopyButton({ value }) {
             } else {
                 const textarea = document.createElement("textarea");
                 textarea.value = value;
-                textarea.style.cssText =
-                    "position:fixed;opacity:0;pointer-events:none";
+                textarea.style.cssText = "position:fixed;opacity:0;pointer-events:none";
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand("copy");
@@ -252,11 +239,8 @@ function CopyButton({ value }) {
 function FencedCodeBlock({ children }) {
     const child = React.Children.only(children);
     const className = child?.props?.className ?? "";
-    const language =
-        /language-([\w-]+)/.exec(className)?.[1] ?? null;
-    const code = String(
-        child?.props?.children ?? "",
-    ).replace(/\n$/, "");
+    const language = /language-([\w-]+)/.exec(className)?.[1] ?? null;
+    const code = String( child?.props?.children ?? "").replace(/\n$/, "");
 
     if (language === "mermaid")
         return <Mermaid chart={code} />;
@@ -292,10 +276,7 @@ function FencedCodeBlock({ children }) {
                         background: "#1e1e1e",
                     }}
                     codeTagProps={{
-                        style: {
-                            fontFamily:
-                                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                        },
+                        style: {fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"},
                     }}
                 >
                     {code}
@@ -305,17 +286,8 @@ function FencedCodeBlock({ children }) {
     );
 }
 
-
 /* ============================================================
  * Media
- *
- * IMPORTANT:
- * Use <span>, NOT <div>.
- *
- * Markdown images normally live inside <p>, therefore:
- *
- * <p><span><img /></span></p>  -> valid
- * <p><div><img /></div></p>    -> invalid hydration nesting
  * ============================================================ */
 
 const VIDEO_EXTENSIONS = /\.(mp4|webm|ogg|m4v|mov)$/i;
@@ -326,7 +298,8 @@ const isVideoUrl = (src) =>
     VIDEO_EXTENSIONS.test(src.split(/[?#]/)[0]);
 
 function MarkdownMedia({ src, alt, title }) {
-    if (!src) return null;
+    if (!src)
+        return null;
 
     const { altText, width } = parseMediaSize(alt);
     const style = {
@@ -336,7 +309,7 @@ function MarkdownMedia({ src, alt, title }) {
 
     if (isVideoUrl(src)) {
         return (
-            <span className="my-4 flex w-full justify-center">
+            <span className="flex w-full justify-center">
                 <video
                     src={src}
                     title={title}
@@ -352,23 +325,47 @@ function MarkdownMedia({ src, alt, title }) {
     }
 
     return (
-        <span className="my-4 flex w-full justify-center">
-            <a
-                href={src}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={title}
-                style={style}
-                className="block"
-            >
+        <span className="flex w-full justify-center">
                 <img
                     src={src}
                     alt={altText}
+                    style={style}
                     loading="lazy"
-                    className="h-auto max-h-[70vh] w-full rounded-depth-lg border border-depth object-contain shadow-depth-md transition hover:opacity-90"
+                    className="h-auto max-h-[70vh] w-full object-contain transition"
                 />
-            </a>
         </span>
+    );
+}
+
+const isCanvaUrl = (href) => {
+    if (!href)
+        return false;
+
+    try {
+        const url = new URL(href);
+        return (
+            url.hostname === "www.canva.com" ||
+            url.hostname === "canva.com"
+        );
+    } catch {
+        return false;
+    }
+};
+
+function CanvaEmbed({ href }) {
+    const url = new URL(href);
+    url.searchParams.set("embed", "1");
+
+    return (
+        <div className="my-5 aspect-video overflow-hidden rounded-depth-lg border border-depth">
+            <iframe
+                src={url.toString()}
+                title="Canva Presentation"
+                className="h-full w-full border-0"
+                loading="lazy"
+                allowFullScreen
+            />
+        </div>
     );
 }
 
@@ -406,9 +403,7 @@ const ALERT_STYLES = {
 };
 
 const getAlertType = (className = "") =>
-    /markdown-alert-(note|tip|important|warning|caution)/.exec(
-        className,
-    )?.[1] ?? null;
+    /markdown-alert-(note|tip|important|warning|caution)/.exec(className)?.[1] ?? null;
 
 
 /* ============================================================
@@ -424,17 +419,21 @@ export default function MarkdownRenderer({
             ? content
             : String(content ?? "");
 
+    const getTableAlignClass = (align) => {
+        switch (align) {
+            case "center":
+                return "text-center";
+            case "right":
+                return "text-right";
+            default:
+                return "text-left";
+        }
+    };
+
     return (
-        <div
-            className={`prose prose-invert max-w-none ${className}`}
-        >
+        <div className={`prose prose-invert max-w-none ${className}`}>
             <ReactMarkdown
-                remarkPlugins={[
-                    remarkGfm,
-                    remarkMath,
-                    remarkGithubAlerts,
-                    remarkBreaks,
-                ]}
+                remarkPlugins={[remarkGfm, remarkMath, remarkGithubAlerts, remarkBreaks]}
                 rehypePlugins={[rehypeKatex]}
                 components={{
                     pre: ({ children }) => (
@@ -443,39 +442,32 @@ export default function MarkdownRenderer({
                         </FencedCodeBlock>
                     ),
 
-                    code: ({
-                        className = "",
-                        children,
-                        ...props
-                    }) => (
-                        <code
-                            className={`rounded border border-depth bg-depth-card px-1.5 py-0.5 font-mono text-sm ${className}`}
-                            {...props}
-                        >
+                    code: ({className = "", children, ...props}) => (
+                        <code className={`rounded border border-depth bg-depth-card px-1.5 py-0.5 font-mono text-sm ${className}`} {...props}>
                             {children}
                         </code>
                     ),
 
                     h1: ({ children }) => (
-                        <h1 className="mb-4 mt-6 border-b border-depth pb-2 text-3xl font-bold leading-tight text-depth-primary first:mt-0">
+                        <h1 className="mb-4 mt-8 text-3xl font-bold tracking-tight text-depth-primary first:mt-0">
                             {children}
                         </h1>
                     ),
 
                     h2: ({ children }) => (
-                        <h2 className="mb-3 mt-6 border-b border-depth pb-1.5 text-2xl font-bold leading-tight text-depth-primary first:mt-0">
+                        <h2 className="mb-3 mt-7 text-2xl font-bold tracking-tight text-depth-primary first:mt-0">
                             {children}
                         </h2>
                     ),
 
                     h3: ({ children }) => (
-                        <h3 className="mb-3 mt-5 text-xl font-semibold leading-snug text-depth-primary first:mt-0">
+                        <h3 className="mb-2 mt-6 text-xl font-semibold text-depth-primary first:mt-0">
                             {children}
                         </h3>
                     ),
 
                     h4: ({ children }) => (
-                        <h4 className="mb-2 mt-4 text-lg font-semibold leading-snug text-depth-primary first:mt-0">
+                        <h4 className="mb-2 mt-5 text-lg font-semibold text-depth-primary first:mt-0">
                             {children}
                         </h4>
                     ),
@@ -497,15 +489,11 @@ export default function MarkdownRenderer({
                         children,
                         ...props
                     }) => {
-                        const type =
-                            getAlertType(className);
+                        const type = getAlertType(className);
 
                         if (!type)
                             return (
-                                <blockquote
-                                    className="my-4 border-l-4 border-depth pl-4 text-depth-secondary"
-                                    {...props}
-                                >
+                                <blockquote className="my-4 border-l-4 border-depth pl-4 text-depth-secondary bg-black/20" {...props}>
                                     {children}
                                 </blockquote>
                             );
@@ -513,12 +501,8 @@ export default function MarkdownRenderer({
                         const alert = ALERT_STYLES[type];
 
                         return (
-                            <div
-                                className={`my-4 rounded-depth-md border-l-4 px-4 py-3 ${alert.container}`}
-                            >
-                                <div
-                                    className={`mb-2 flex items-center gap-2 text-sm font-bold ${alert.title}`}
-                                >
+                            <div className={`my-4 border-l-4 px-4 py-3 ${alert.container}`}>
+                                <div className={`mb-2 flex items-center gap-2 text-sm font-bold ${alert.title}`}>
                                     <svg
                                         className="h-4 w-4 shrink-0"
                                         viewBox="0 0 24 24"
@@ -526,19 +510,9 @@ export default function MarkdownRenderer({
                                         stroke="currentColor"
                                         strokeWidth="2"
                                     >
-                                        <circle
-                                            cx="12"
-                                            cy="12"
-                                            r="9"
-                                        />
-                                        <path
-                                            strokeLinecap="round"
-                                            d="M12 11v5"
-                                        />
-                                        <path
-                                            strokeLinecap="round"
-                                            d="M12 8h.01"
-                                        />
+                                        <circle cx="12" cy="12" r="9"/>
+                                        <path strokeLinecap="round" d="M12 11v5"/>
+                                        <path strokeLinecap="round" d="M12 8h.01"/>
                                     </svg>
 
                                     {alert.label}
@@ -551,6 +525,37 @@ export default function MarkdownRenderer({
                         );
                     },
 
+                    input: ({ type, checked, ...props }) => {
+                        if (type !== "checkbox") {
+                            return <input type={type} {...props} />;
+                        }
+
+                        return (
+                            <input
+                                type="checkbox"
+                                checked={checked}
+                                readOnly
+                                disabled
+                                className="
+                                    mr-2 inline-grid h-4 w-4 shrink-0
+                                    appearance-none place-content-center
+                                    rounded border border-depth
+                                    bg-depth-card
+                                    align-[-2px]
+                                    before:h-2 before:w-2
+                                    before:scale-0 before:transform
+                                    before:rounded-sm before:bg-white
+                                    before:content-['']
+                                    checked:border-blue-500
+                                    checked:bg-blue-500
+                                    checked:before:scale-100
+                                    disabled:cursor-default disabled:opacity-100
+                                "
+                                {...props}
+                            />
+                        );
+                    },
+
                     img: ({ src, alt, title }) => (
                         <MarkdownMedia
                             src={src}
@@ -560,15 +565,21 @@ export default function MarkdownRenderer({
                     ),
 
                     p: ({ children }) => (
-                        <p className="mb-2 whitespace-pre-wrap">
+                        <p className="mb-3 leading-7 whitespace-pre-wrap last:mb-0">
                             {children}
                         </p>
                     ),
 
-                    ul: ({ children }) => (
-                        <ul className="mb-2 list-inside list-disc">
+                    ul: ({ className = "", children, ...props }) => (
+                        <ul className={`mb-2 list-outside pl-5 ${className.includes("contains-task-list") ? "list-none pl-0" : "list-disc"}`} {...props}>
                             {children}
                         </ul>
+                    ),
+
+                    li: ({ className = "", children, ...props }) => (
+                        <li className={`mb-1 ${className.includes("task-list-item") ? "flex items-start gap-1" : ""}`} {...props}>
+                            {children}
+                        </li>
                     ),
 
                     ol: ({ children }) => (
@@ -578,7 +589,7 @@ export default function MarkdownRenderer({
                     ),
 
                     table: ({ children }) => (
-                        <div className="my-3 overflow-x-auto">
+                        <div className="my-3 overflow-x-auto rounded-lg">
                             <table className="min-w-full border-collapse border border-depth text-sm">
                                 {children}
                             </table>
@@ -597,20 +608,48 @@ export default function MarkdownRenderer({
                         </tbody>
                     ),
 
-                    th: ({ children }) => (
-                        <th className="whitespace-nowrap border border-depth px-2.5 py-1 text-left text-xs font-semibold uppercase tracking-wider text-depth-secondary">
+                    th: ({ children, align, ...props }) => (
+                        <th
+                            align={align}
+                            className={`whitespace-nowrap border border-depth px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-depth-secondary ${getTableAlignClass(align)}`}
+                            {...props}
+                        >
                             {children}
                         </th>
                     ),
 
-                    td: ({ children }) => (
-                        <td className="border-x border-depth px-2.5 py-1 text-sm text-depth-primary">
+                    td: ({ children, align, ...props }) => (
+                        <td
+                            align={align}
+                            className={`border-x border-depth px-2.5 py-2 text-sm text-depth-primary ${getTableAlignClass(align)}`}
+                            {...props}
+                        >
                             {children}
                         </td>
                     ),
 
+                    a: ({ children, href, ...props }) => {
+                        if (isCanvaUrl(href)) {
+                            return (
+                                <CanvaEmbed href={href} />
+                            );
+                        }
+                        return (
+                            <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-blue-400 underline decoration-blue-400/40 underline-offset-2 transition-colors hover:text-blue-300 hover:decoration-blue-300"
+                                {...props}
+                            >
+                                {children}
+                            </a>
+                        )
+                    },
+
+
                     hr: () => (
-                        <hr className="my-6 border-0 border-t border-depth" />
+                        <hr className="my-6 border-0 border-t border-depth"/>
                     ),
                 }}
             >

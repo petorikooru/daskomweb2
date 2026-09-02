@@ -3,6 +3,18 @@ import { ModalOverlay } from "@/Components/Common/ModalPortal";
 import ModalCloseButton from "@/Components/Common/ModalCloseButton";
 import MarkdownRenderer from "../../MarkdownRenderer";
 
+const DIFFICULTY_MAP = {
+    easy: "easy",
+    mudah: "easy",
+    medium: "medium",
+    sedang: "medium",
+    hard: "hard",
+    sulit: "hard",
+    susah: "hard",
+};
+
+const normalizeDifficulty = (value) => DIFFICULTY_MAP[String(value ?? "").trim().toLowerCase()] ?? "";
+
 export default function ModalLegacyBatchEditSoal({
     title,
     initialValue,
@@ -52,6 +64,7 @@ export default function ModalLegacyBatchEditSoal({
             await onSubmit({ rawContent: content, items, modulId: selectedModuleId });
         } catch (error) {
             console.error("Legacy batch edit submission failed:", error);
+            throw error;
         } finally {
             setIsSubmitting(false);
         }
@@ -62,22 +75,6 @@ export default function ModalLegacyBatchEditSoal({
             <div className="depth-modal-container flex max-h-[90vh] flex-col overflow-hidden" style={{ "--depth-modal-max-width": "90rem" }}>
                 <div className="depth-modal-header">
                     <h2 className="depth-modal-title">{title}</h2>
-
-                    <div className="flex items-center gap-3">
-                        <p className="text-sm text-depth-secondary">Move into:</p>
-                        {!!normalizedModuleOptions.length && (
-                            <select
-                                value={selectedModuleId}
-                                onChange={(e) => setSelectedModuleId(e.target.value)}
-                                className="rounded-depth-md border border-depth bg-depth-card px-3 py-2 text-sm text-depth-primary"
-                            >
-                                {normalizedModuleOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
                     <ModalCloseButton onClick={onClose} ariaLabel="Tutup editor batch" />
                 </div>
 
@@ -103,6 +100,13 @@ export default function ModalLegacyBatchEditSoal({
                                             <p className="mb-3 text-sm font-semibold text-depth-primary">Soal: {index + 1}</p>
                                                 {variant === "pg" ? (
                                                     <>
+
+                                                        {item.difficulty && (
+                                                            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-depth-secondary">
+                                                                Kesulitan: <span className="text-depth-primary">{item.difficulty}</span>
+                                                            </p>
+                                                        )}
+
                                                         <div className="mb-4 text-sm text-depth-primary">
                                                             <MarkdownRenderer content={item.pertanyaan || "_(kosong)_"} />
                                                         </div>
@@ -183,71 +187,45 @@ export const parseLegacyEssayMarkdown = (markdown) => {
 export const parseLegacyPgMarkdown = (markdown) => {
     if (!markdown?.trim()) return [];
 
-    const normalized = markdown.replace(/\r\n/g, "\n");
-
-    return normalized
+    return markdown
+        .replace(/\r\n/g, "\n")
         .split(/(?=^Soal\s+\d+\s*$)/gim)
         .map((part) => part.trim())
         .filter(Boolean)
         .map((body) => {
-            const withoutHeader = body
-                .replace(/^Soal\s+\d+\s*\n?/i, "")
-                .trim();
-
+            const withoutHeader = body.replace(/^Soal\s+\d+\s*\n?/i, "").trim();
+            const difficultyMatch = withoutHeader.match(/(?:^|\n)Kesulitan\s*:\s*([^\n]*)/i);
             const questionMatch = withoutHeader.match(/(?:^|\n)Pertanyaan\s*:\s*\n?/i);
             const optionsMatch = withoutHeader.match(/(?:^|\n)Pilihan\s*:\s*\n?/i);
+            const difficulty = normalizeDifficulty(difficultyMatch?.[1]);
 
             let question = "";
             let optionsText = "";
 
             if (questionMatch && optionsMatch) {
-                const questionStart = questionMatch.index + questionMatch[0].length;
-                const optionsStart = optionsMatch.index;
-                question = withoutHeader
-                    .slice(questionStart, optionsStart)
-                    .trim();
-                optionsText = withoutHeader
-                    .slice(optionsMatch.index + optionsMatch[0].length)
-                    .trim();
-
+                question = withoutHeader.slice(questionMatch.index + questionMatch[0].length, optionsMatch.index).trim();
+                optionsText = withoutHeader.slice(optionsMatch.index + optionsMatch[0].length).trim();
             } else if (questionMatch) {
-                const questionStart = questionMatch.index + questionMatch[0].length;
-                question = withoutHeader
-                    .slice(questionStart)
-                    .trim();
-
+                question = withoutHeader.slice(questionMatch.index + questionMatch[0].length).trim();
             } else if (optionsMatch) {
-                question = withoutHeader
-                    .slice(0, optionsMatch.index)
-                    .trim();
-                optionsText = withoutHeader
-                    .slice(optionsMatch.index + optionsMatch[0].length)
-                    .trim();
+                question = withoutHeader.slice(0, optionsMatch.index).replace(/(?:^|\n)Kesulitan\s*:\s*[^\n]*/i, "").trim();
+                optionsText = withoutHeader.slice(optionsMatch.index + optionsMatch[0].length).trim();
             } else {
-                // Fallback for old content without explicit labels.
                 const lines = withoutHeader.split("\n");
-                const optionStart = lines.findIndex((line) =>
-                    isLegacyOptionLine(line),
-                );
+                const optionStart = lines.findIndex(isLegacyOptionLine);
 
                 if (optionStart >= 0) {
-                    question = lines
-                        .slice(0, optionStart)
-                        .join("\n")
-                        .trim();
-
-                    optionsText = lines
-                        .slice(optionStart)
-                        .join("\n")
-                        .trim();
+                    question = lines.slice(0, optionStart).join("\n").replace(/(?:^|\n)Kesulitan\s*:\s*[^\n]*/i, "").trim();
+                    optionsText = lines.slice(optionStart).join("\n").trim();
                 } else {
-                    question = withoutHeader;
+                    question = withoutHeader.replace(/(?:^|\n)Kesulitan\s*:\s*[^\n]*/i, "").trim();
                 }
             }
 
             return {
                 pertanyaan: question,
                 options: parseLegacyOptions(optionsText),
+                difficulty,
             };
         });
 };
