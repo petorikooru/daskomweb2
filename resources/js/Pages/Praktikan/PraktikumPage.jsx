@@ -125,6 +125,7 @@ export default function PraktikumPage({ auth }) {
                                     tipeSoal={TASKS[view]?.phase}
                                     praktikanId={praktikanId}
                                     isCommentEnabled={isTot}
+                                    isTot={isTot}
                                 />
                             ) : view === "FeedbackPhase" ? (
                                 <FeedbackPhase

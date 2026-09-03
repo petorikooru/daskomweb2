@@ -12,9 +12,9 @@ export default function TesAwal({
     tipeSoal = "ta",
     praktikanId = null,
     isCommentEnabled = false,
+    isTot = false,
 }) {
-    const { panelRef, active, setActive, goTo } =
-        useQuestionNavigation(questions);
+    const { panelRef, active, setActive, goTo } = useQuestionNavigation(questions);
 
     const selectAnswer = (index, optionId) => {
         setActive(index);
@@ -65,6 +65,7 @@ export default function TesAwal({
                             tipeSoal={tipeSoal}
                             praktikanId={praktikanId}
                             isCommentEnabled={isCommentEnabled}
+                            isTot={isTot}
                         />
                     ))}
                 </div>
@@ -82,6 +83,7 @@ function Question({
     tipeSoal,
     praktikanId,
     isCommentEnabled,
+    isTot,
 }) {
     const questionId =
         question.id ??
@@ -100,6 +102,10 @@ function Question({
                 <QuestionNumber number={index + 1} />
 
                 <div className="min-w-0 flex-1">
+                    {isTot && (
+                        <DifficultyIndicator value={question.difficulty} />
+                    )}
+
                     <div className="text-sm font-medium leading-relaxed text-depth-primary">
                         <MarkdownRenderer content={question.text} />
                     </div>
@@ -203,3 +209,52 @@ function State({ children, error = false }) {
         </div>
     );
 }
+
+const difficultyStyles = {
+    easy: {
+        container: "border-emerald-500/40 bg-emerald-500/10 text-emerald-500",
+        dot: "bg-emerald-500",
+        label: "Mudah",
+    },
+    medium: {
+        container: "border-amber-500/40 bg-amber-500/10 text-amber-500",
+        dot: "bg-amber-500",
+        label: "Sedang",
+    },
+    hard: {
+        container: "border-red-500/40 bg-red-500/10 text-red-500",
+        dot: "bg-red-500",
+        label: "Sulit",
+    },
+};
+
+function normalizeDifficulty(value) {
+    const normalized = String(value ?? "").trim().toLowerCase();
+
+    return {
+        easy: "easy",
+        mudah: "easy",
+        medium: "medium",
+        sedang: "medium",
+        hard: "hard",
+        sulit: "hard",
+        susah: "hard",
+    }[normalized] ?? "";
+}
+
+function DifficultyIndicator({ value }) {
+    const difficulty = normalizeDifficulty(value);
+    const styles = difficultyStyles[difficulty];
+
+    if (!styles) return null;
+
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 rounded-depth-md border px-2 py-0.5 text-xs font-semibold ${styles.container}`}
+        >
+            <span className={`h-1.5 w-1.5 rounded-full ${styles.dot}`} />
+            {styles.label}
+        </span>
+    );
+}
+

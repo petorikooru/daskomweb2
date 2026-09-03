@@ -17,6 +17,7 @@ use Illuminate\Support\Collection as BaseCollection;
  * @property int $id
  * @property int $modul_id
  * @property string $pertanyaan
+ * @property int $difficulty
  * @property int|null $opsi1_id
  * @property int|null $opsi2_id
  * @property int|null $opsi3_id
@@ -44,6 +45,7 @@ class SoalTa extends Model
     protected $fillable = [
         'modul_id',
         'pertanyaan',
+        'difficulty',
         'opsi1_id',
         'opsi2_id',
         'opsi3_id',

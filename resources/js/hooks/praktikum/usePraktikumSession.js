@@ -111,22 +111,25 @@ export default function usePraktikumSession({ praktikan, task, view, setView }) 
         if (!praktikanId || !module || !SCORE_PHASES.has(phase)) return false;
 
         const key = `${phase}:${module}`;
-        if (scoreLocks.current.has(key)) return true;
+        if (scoreLocks.current.has(key)) return false;
 
         scoreLocks.current.add(key);
         scoreAck.current = true;
         setScore((x) => ({ ...x, phaseType: phase, hasError: false, isRetrying: true }));
 
         try {
-            const { data } = await api.get(`/api-v1/nilai-${phase}/${praktikanId}/${module}`);
+            const { data } = await api.get(`/api-v1/nilai-${phase}/${praktikanId}/${module}`, {
+                params: { _t: Date.now() },
+            });
+
             const total = data?.total_questions ?? data?.totalQuestions ?? 0;
             const percentage = typeof data?.score === "number" ? data.score : null;
             const rawCorrect = data?.correct_answers ?? data?.correctAnswers;
             const correct = typeof rawCorrect === "number"
                 ? rawCorrect
                 : total && percentage != null
-                  ? Math.round((percentage / 100) * total)
-                  : 0;
+                ? Math.round((percentage / 100) * total)
+                : 0;
 
             setScore({
                 isOpen: true,
@@ -141,9 +144,10 @@ export default function usePraktikumSession({ praktikan, task, view, setView }) 
             return true;
         } catch (e) {
             console.error(`[Score:${phase}]`, e);
-            scoreLocks.current.delete(key);
             setScore((x) => ({ ...x, isOpen: true, phaseType: phase, hasError: true, isRetrying: false }));
             return false;
+        } finally {
+            scoreLocks.current.delete(key);
         }
     }, [praktikanId, modulId]);
 
@@ -179,6 +183,12 @@ export default function usePraktikumSession({ praktikan, task, view, setView }) 
     }, [getFeedbackContext, openFeedback, score.isOpen]);
 
     const closeScore = useCallback(() => {
+        const phase = score.phaseType;
+
+        if (phase && modulId) {
+            scoreLocks.current.delete(`${phase}:${modulId}`);
+        }
+
         setScore((x) => ({ ...x, isOpen: false }));
         scoreAck.current = false;
 
@@ -187,7 +197,7 @@ export default function usePraktikumSession({ praktikan, task, view, setView }) 
 
         pendingFeedback.current = null;
         openFeedback(pending);
-    }, [openFeedback]);
+    }, [score.phaseType, modulId, openFeedback]);
 
     const retryScore = useCallback(() => {
         const phase = score.phaseType;
@@ -252,12 +262,6 @@ export default function usePraktikumSession({ praktikan, task, view, setView }) 
         fetchScore,
         goPhase,
     ]);
-
-    useEffect(() => {
-        const phase = meta?.current_phase;
-        if (modulId && SCORE_PHASES.has(phase))
-            scoreLocks.current.delete(`${phase}:${modulId}`);
-    }, [meta?.current_phase, modulId]);
 
     useEffect(() => {
         if (!window.Echo || !kelasId || !praktikanId) return;

@@ -140,7 +140,7 @@
     :root[data-theme="dark"] * {
         scrollbar-color: #4c7a4c hsl(220, 25%, 10%);
     }
-    
+
 
     body {
         background-color: var(--depth-color-background);
@@ -322,7 +322,7 @@
         justify-content: center;
         position: fixed;
         inset: 0;
-        z-index: 9999 !important;
+        z-index: 100 !important;
         padding: 1.5rem;
         background: rgba(10, 14, 25, 0.7);
         backdrop-filter: blur(8px);
@@ -403,5 +403,5 @@
     [data-theme="dark"] .edit-icon-filter {
         filter: brightness(0) invert(1);
     }
-    
+
 }

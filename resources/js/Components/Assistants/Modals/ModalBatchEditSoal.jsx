@@ -157,7 +157,7 @@ function QuestionCard({
                             disabled={!item.soal.trim() || isSaving}
                             className="rounded-depth-md border border-depth bg-depth-interactive px-2.5 py-1 text-[10px] font-semibold text-depth-secondary disabled:opacity-40"
                         >
-                            {side === "ID" ? "Copy → EN" : "← Copy to ID"}
+                            {side === "ID" ? "Copy to EN" : "Copy to ID"}
                         </button>
                     )}
 

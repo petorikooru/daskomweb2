@@ -16,17 +16,24 @@ export default function ScoreDisplayModal({
         return null;
     }
 
-    const safeTotal = Math.max(0, Number(totalQuestions) || 0);
-    const displayTotal = isTotClass ? safeTotal : 10;
+    // const safeTotal = Math.max(0, Number(totalQuestions) || 0);
+    // const displayTotal = isTotClass ? safeTotal : 10;
 
-    const safeCorrect = Math.max(0, Number(correctAnswers) || 0);
-    const displayCorrect = Math.min(safeCorrect, displayTotal);
+    // const safeCorrect = Math.max(0, Number(correctAnswers) || 0);
+    // const displayCorrect = Math.min(safeCorrect, displayTotal);
 
-    const scorePercentage =
-        displayTotal > 0
-            ? Math.round((displayCorrect / displayTotal) * 100)
-            : 0;
+    // const scorePercentage =
+    //     displayTotal > 0
+    //         ? Math.round((displayCorrect / displayTotal) * 100)
+    //         : 0;
 
+    const displayTotal = Math.max(0, Number(totalQuestions) || 0);
+    const displayCorrect = Math.min(Math.max(0, Number(correctAnswers) || 0), displayTotal);
+    const scorePercentage = typeof percentage === "number"
+        ? Math.round(percentage)
+        : displayTotal > 0
+        ? Math.round((displayCorrect / displayTotal) * 100)
+        : 0;
 
     const phaseLabel = phaseType === "tk" ? "Tes Keterampilan" : "Tes Awal";
 
